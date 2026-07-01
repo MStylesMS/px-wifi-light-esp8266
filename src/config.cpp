@@ -32,7 +32,7 @@ void load_defaults(Config& c) {
     c.wifi_primary.password = "";
     c.wifi_backup.ssid      = "";
     c.wifi_backup.password  = "";
-    c.ap_password           = "Paradox1";
+    c.ap_password           = "MCEscher";
 
     c.mqtt_host                   = "";
     c.mqtt_port                   = 1883;
