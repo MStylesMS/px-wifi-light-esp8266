@@ -21,8 +21,16 @@ static uint8_t clamp8(int v) {
 }
 
 // Apply the logical state to hardware.
-// White: active-HIGH digital; GPIO2 is HIGH at boot so "off" is the default
-// safe state — good, because we don't want lights to flash on at reset.
+//
+// MOSFETs are IRLB8721 (N-channel, enhancement mode).
+// Gate HIGH → MOSFET ON → LED on. Active-HIGH drive is correct.
+//
+// Boot/failsafe note: GPIO2 (White) is held HIGH by the ESP8266 bootstrap
+// circuit (required for normal boot mode). With an N-channel MOSFET this
+// means the white channel is ON during the boot ROM phase — intentional.
+// If the firmware ever fails to start, white stays on as the hardware-level
+// default. Once this function is called from begin(), the firmware takes
+// control and can drive it to whatever state it needs.
 static void apply_hw() {
     if (!s_state.on) {
         digitalWrite(pins::WHITE, LOW);
@@ -70,6 +78,7 @@ void set_rgb(uint8_t r, uint8_t g, uint8_t b) {
     s_state.r = r;
     s_state.g = g;
     s_state.b = b;
+    s_state.white = false;  // explicit colour overrides white channel
     // Any non-zero RGB implicitly turns the device on.
     if (r || g || b) s_state.on = true;
     s_state.scene = "";

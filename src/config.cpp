@@ -44,7 +44,8 @@ void load_defaults(Config& c) {
 }
 
 static void substitute_placeholders(Config& c) {
-    c.prop_name = subst_xxxx(c.prop_name);
+    c.prop_name        = subst_xxxx(c.prop_name);
+    c.mqtt_base_topic  = subst_xxxx(c.mqtt_base_topic);
 }
 
 static bool read_file_to_string(const char* path, String& out) {
