@@ -1,0 +1,13 @@
+.pio/
+.pioenvs/
+.piolibdeps/
+.clang_complete
+.gcc-flags.json
+
+# Local credentials — never commit
+data/config.json
+
+# Editor
+.vscode/
+*.swp
+*~

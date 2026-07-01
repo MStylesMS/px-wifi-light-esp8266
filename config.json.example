@@ -1,0 +1,10 @@
+{
+  "device": {
+    "prop_name": "px-light-XXXX"
+  },
+  "wifi": {
+    "primary":    { "ssid": "YourPrimarySSID",  "password": "YourPrimaryPassword" },
+    "backup":     { "ssid": "YourBackupSSID",   "password": "YourBackupPassword"  },
+    "ap_password": "Paradox1"
+  }
+}

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Paradox Lights</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Paradox Lights</h1>
+  </header>
+
+  <main>
+    <section id="status-section">
+      <h2>Device Status</h2>
+      <table id="status-table">
+        <tbody>
+          <tr><th>Name</th><td id="prop-name">—</td></tr>
+          <tr><th>Firmware</th><td id="fw-version">—</td></tr>
+          <tr><th>AP IP</th><td id="ap-ip">—</td></tr>
+          <tr><th>LAN IP</th><td id="sta-ip">—</td></tr>
+          <tr><th>Network</th><td id="sta-ssid">—</td></tr>
+          <tr><th>RSSI</th><td id="sta-rssi">—</td></tr>
+          <tr><th>mDNS</th><td id="mdns">—</td></tr>
+          <tr><th>Uptime</th><td id="uptime">—</td></tr>
+          <tr><th>Free heap</th><td id="free-heap">—</td></tr>
+        </tbody>
+      </table>
+
+      <div class="btn-row">
+        <button type="button" id="refresh">Refresh</button>
+        <button type="button" id="restart" class="warn">Restart</button>
+        <button type="button" id="reset" class="danger">Factory Reset</button>
+      </div>
+      <p id="msg" class="msg hidden"></p>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

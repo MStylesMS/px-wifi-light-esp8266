@@ -1,0 +1,91 @@
+/* px-wifi-light-esp8266 — minimal UI stylesheet */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, sans-serif;
+  background: #111;
+  color: #eee;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  background: #1a1a2e;
+  padding: 1rem 1.5rem;
+  border-bottom: 2px solid #e94560;
+}
+
+header h1 {
+  font-size: 1.6rem;
+  color: #e94560;
+  letter-spacing: 0.05em;
+}
+
+main {
+  padding: 1.5rem;
+  flex: 1;
+}
+
+section {
+  max-width: 480px;
+}
+
+h2 {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #aaa;
+  margin-bottom: 0.75rem;
+}
+
+#status-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+#status-table th, #status-table td {
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid #2a2a3e;
+  font-size: 0.9rem;
+}
+
+#status-table th {
+  color: #aaa;
+  width: 35%;
+}
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  border: 1px solid #444;
+  background: #222;
+  color: #eee;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+button:hover  { background: #333; }
+button.warn   { border-color: #f0a500; color: #f0a500; }
+button.danger { border-color: #e94560; color: #e94560; }
+
+.msg {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  background: #1e3a1e;
+  color: #7fc97f;
+}
+
+.msg.error { background: #3a1e1e; color: #e94560; }
+.hidden    { display: none; }
