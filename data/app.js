@@ -55,15 +55,27 @@
       badge.className = 'badge ' + (d.mqtt_connected ? 'badge-ok' : 'badge-off');
     }
 
-    // Light preview
+    // Light preview — three swatches
     var on  = d.on;
-    var hex = on ? rgbToHex(d.r || 0, d.g || 0, d.b || 0) : '#000';
-    // Show white tint if white is on
-    if (on && d.white) {
-      hex = d.r || d.g || d.b ? hex : '#fff';
-    }
-    var swatch = $('color-swatch');
-    if (swatch) swatch.style.background = hex;
+    var br  = (d.brightness != null ? d.brightness : 100) / 100;
+    var whiteOn = !!(on && d.white);
+    var sr = Math.round((d.r || 0) * br);
+    var sg = Math.round((d.g || 0) * br);
+    var sb = Math.round((d.b || 0) * br);
+    var WHITE_FLOOR = 230;
+
+    var swW = $('swatch-white');
+    if (swW) swW.style.background = whiteOn ? '#fff' : '#111';
+
+    var swR = $('swatch-rgb');
+    if (swR) swR.style.background = on ? rgbToHex(sr, sg, sb) : '#111';
+
+    var floor = whiteOn ? WHITE_FLOOR : 0;
+    var blendR = on ? Math.min(255, floor + sr) : 0;
+    var blendG = on ? Math.min(255, floor + sg) : 0;
+    var blendB = on ? Math.min(255, floor + sb) : 0;
+    var swB = $('swatch-blend');
+    if (swB) swB.style.background = rgbToHex(blendR, blendG, blendB);
     setText('light-state-label', on ? 'ON' : 'OFF');
     setText('light-scene-label', d.scene || '');
 

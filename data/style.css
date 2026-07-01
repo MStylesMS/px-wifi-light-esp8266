@@ -66,14 +66,41 @@ h3 {
   margin-bottom: 0.75rem;
 }
 
-#color-swatch {
-  width: 56px;
-  height: 56px;
-  border-radius: 6px;
-  background: #222;
-  border: 1px solid #333;
+.swatch-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
   flex-shrink: 0;
+}
+
+.swatch-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.swatch-col > div {
+  width: 44px;
+  height: 44px;
+  border-radius: 5px;
+  background: #111;
+  border: 1px solid #333;
   transition: background 0.3s;
+}
+
+.swatch-op {
+  font-size: 0.85rem;
+  color: #555;
+  padding: 0 0.1rem;
+  margin-bottom: 1rem;
+}
+
+.swatch-label {
+  font-size: 0.65rem;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .light-meta {

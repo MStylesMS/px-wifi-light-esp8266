@@ -18,7 +18,22 @@
       <h2>Lights</h2>
 
       <div class="light-preview">
-        <div id="color-swatch"></div>
+        <div class="swatch-row">
+          <div class="swatch-col">
+            <div id="swatch-white" title="White channel"></div>
+            <span class="swatch-label">W</span>
+          </div>
+          <span class="swatch-op">+</span>
+          <div class="swatch-col">
+            <div id="swatch-rgb" title="RGB channels"></div>
+            <span class="swatch-label">RGB</span>
+          </div>
+          <span class="swatch-op">=</span>
+          <div class="swatch-col">
+            <div id="swatch-blend" title="Combined (approx)"></div>
+            <span class="swatch-label">~</span>
+          </div>
+        </div>
         <div class="light-meta">
           <span id="light-state-label">—</span>
           <span id="light-scene-label" class="dim-text"></span>
