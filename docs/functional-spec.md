@@ -67,6 +67,7 @@ All commands follow the Paradox command envelope:
 | `on` / `allOn` | — | Set `on=true`. If no channels were set, defaults to white on. |
 | `off` / `allOff` | — | Set `on=false`. Channel targets are preserved for next `on`. |
 | `setColor` | `color: "#rrggbb"` or `{r,g,b}`, optional `brightness` | Set RGB, turn white off, set `on=true`. |
+| `setWhite` | `white: true\|false` | Turn white channel on or off. `false` + no RGB active turns `on=false`. |
 | `setBrightness` | `brightness: 0–100` | Set brightness scaler. Sets `on=true` if currently off. |
 | `setColorScene` / `scene` | `scene: "<name>"` | Apply a named scene (see §5). |
 | `getState` / `getStatus` | — | Re-publish retained state immediately. |

@@ -208,7 +208,8 @@ bool from_json(Config& c, const JsonDocument& in, String* err_out) {
 }
 
 bool reboot_required(const Config& a, const Config& b) {
-    return a.wifi_primary.ssid     != b.wifi_primary.ssid     ||
+    return a.prop_name              != b.prop_name              ||
+           a.wifi_primary.ssid     != b.wifi_primary.ssid     ||
            a.wifi_primary.password != b.wifi_primary.password ||
            a.wifi_backup.ssid      != b.wifi_backup.ssid      ||
            a.wifi_backup.password  != b.wifi_backup.password  ||

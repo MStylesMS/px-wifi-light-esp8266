@@ -89,6 +89,9 @@ curl -X POST http://<host>/api/light -d '{"command":"on"}'
 curl -X POST http://<host>/api/light \
   -d '{"command":"setColor","color":"#ff8000","brightness":80}'
 
+# Toggle white channel
+curl -X POST http://<host>/api/light -d '{"command":"setWhite","white":true}'
+
 # Named scene
 curl -X POST http://<host>/api/light \
   -d '{"command":"setColorScene","scene":"warmWhite"}'
@@ -113,7 +116,24 @@ curl -X POST http://<host>/api/config \
   -d '{"mqtt":{"host":"192.168.1.10"}}'
 ```
 
-Returns `{"ok":true,"reboot_required":<bool>}`. Changes to WiFi credentials, MQTT host/port, or AP password require a reboot.
+Returns `{"ok":true,"reboot_required":<bool>}`. Changes to WiFi credentials, hostname, MQTT host/port, or AP password trigger an automatic reboot (~1.5 s).
+
+#### `GET /api/scan`
+
+Trigger a WiFi network scan and return discovered access points. **Blocks ~2–4 seconds.**
+
+```bash
+curl http://<host>/api/scan
+```
+
+```json
+{
+  "networks": [
+    { "ssid": "Paradox", "rssi": -52, "secure": true },
+    { "ssid": "GuestWifi", "rssi": -71, "secure": false }
+  ]
+}
+```
 
 #### `POST /api/config/reset` (via `POST /api/reset`)
 
@@ -164,6 +184,7 @@ All commands follow the Paradox envelope `{"command":"<name>", ...params}`.
 | `on` / `allOn` | — | — | Turn on; default to white if nothing set |
 | `off` / `allOff` | — | — | All channels off |
 | `setColor` | `color` | `brightness` | Set RGB (`"#rrggbb"` or `{r,g,b}`); white off |
+| `setWhite` | `white` (bool) | — | Toggle white channel; `false` + no RGB turns device off |
 | `setBrightness` | `brightness` (0–100) | — | Set PWM scaler |
 | `setColorScene` / `scene` | `scene` (string) | — | Apply named scene |
 | `getState` / `getStatus` | — | — | Force-publish state |

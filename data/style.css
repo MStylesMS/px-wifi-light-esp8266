@@ -175,3 +175,69 @@ button.danger { border-color: #e94560; color: #e94560; }
 
 .msg.error { background: #3a1e1e; color: #e94560; }
 .hidden    { display: none; }
+
+/* ---- Settings section ---- */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  padding: 0.4rem 0;
+  border-top: 1px solid #222;
+  margin-top: 0.75rem;
+}
+.section-header:hover h2 { color: #aaa; }
+.section-header h2 { margin-bottom: 0; }
+#settings-chevron { color: #666; font-size: 0.75rem; }
+#settings-body { padding-top: 0.5rem; }
+
+/* Form fields */
+.field-group { display: flex; flex-direction: column; gap: 0.7rem; }
+.field { display: flex; flex-direction: column; gap: 0.3rem; }
+.field > label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #888;
+}
+.field input[type=text],
+.field input[type=password],
+.field input[type=number] {
+  background: #1a1a1a;
+  border: 1px solid #444;
+  color: #eee;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  width: 100%;
+}
+.field-inline input[type=number] { width: 90px; }
+.field input:focus { outline: none; border-color: #e94560; }
+.field-hint { font-size: 0.75rem; color: #666; }
+.field-hint strong { color: #999; font-weight: normal; }
+
+/* SSID row */
+.input-row { display: flex; gap: 0.4rem; align-items: center; }
+.input-row input { flex: 1; }
+.input-row button { white-space: nowrap; flex-shrink: 0; }
+
+/* Scan list */
+.scan-list {
+  list-style: none;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  margin-top: 0.25rem;
+}
+.scan-item {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+  font-family: monospace;
+  cursor: pointer;
+  border-bottom: 1px solid #222;
+}
+.scan-item:hover { background: #2a2a2a; }
+.scan-item:last-child { border-bottom: none; }

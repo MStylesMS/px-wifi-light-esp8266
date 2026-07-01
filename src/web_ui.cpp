@@ -8,6 +8,7 @@
 
 #include <ArduinoJson.h>
 #include <ESP8266WebServer.h>
+#include <ESP8266WiFi.h>
 #include <LittleFS.h>
 
 namespace web_ui {
@@ -138,6 +139,22 @@ static void handle_get_config() {
     s_server.send(200, "application/json", body);
 }
 
+// GET /api/scan — trigger a WiFi network scan; blocks ~2-4 s.
+static void handle_get_scan() {
+    int n = WiFi.scanNetworks();
+    JsonDocument doc;
+    JsonArray arr = doc["networks"].to<JsonArray>();
+    for (int i = 0; i < n && i < 20; ++i) {
+        JsonObject net = arr.add<JsonObject>();
+        net["ssid"]   = WiFi.SSID(i);
+        net["rssi"]   = WiFi.RSSI(i);
+        net["secure"] = (WiFi.encryptionType(i) != ENC_TYPE_NONE);
+    }
+    WiFi.scanDelete();
+    String body; serializeJson(doc, body);
+    s_server.send(200, "application/json", body);
+}
+
 // POST /api/restart
 static void handle_post_restart() {
     s_server.send(200, "application/json", "{\"ok\":true}");
@@ -166,6 +183,7 @@ void begin(cfg::Config* cfg) {
     s_server.on("/api/light",   HTTP_POST, handle_post_light);
     s_server.on("/api/config",  HTTP_GET,  handle_get_config);
     s_server.on("/api/config",  HTTP_POST, handle_post_config);
+    s_server.on("/api/scan",    HTTP_GET,  handle_get_scan);
     s_server.on("/api/restart", HTTP_POST, handle_post_restart);
     s_server.on("/api/reset",   HTTP_POST, handle_post_reset);
 

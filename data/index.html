@@ -56,6 +56,7 @@
       </div>
       <div class="btn-row">
         <button type="button" id="btn-apply-rgb">Apply RGB</button>
+        <button type="button" id="btn-white">White: —</button>
       </div>
     </section>
 
@@ -82,6 +83,68 @@
         <button type="button" id="reset" class="danger">Factory Reset</button>
       </div>
       <p id="msg" class="msg hidden"></p>
+    </section>
+    <!-- Settings -->
+    <section id="settings-section">
+      <div id="settings-toggle" class="section-header">
+        <h2>⚙ Settings</h2><span id="settings-chevron">▶</span>
+      </div>
+      <div id="settings-body" class="hidden">
+        <p id="cfg-msg" class="msg hidden"></p>
+
+        <h3>WiFi</h3>
+        <div class="field-group">
+          <div class="field">
+            <label for="cfg-ssid">SSID</label>
+            <div class="input-row">
+              <input type="text" id="cfg-ssid" placeholder="network name" autocomplete="off" />
+              <button type="button" id="btn-scan">⟳ Scan</button>
+            </div>
+            <ul id="scan-list" class="scan-list hidden"></ul>
+          </div>
+          <div class="field">
+            <label for="cfg-wifi-pass">WiFi Password</label>
+            <input type="password" id="cfg-wifi-pass" placeholder="(leave blank to keep current)" autocomplete="off" />
+          </div>
+        </div>
+
+        <h3>Device</h3>
+        <div class="field-group">
+          <div class="field">
+            <label for="cfg-hostname">Hostname</label>
+            <input type="text" id="cfg-hostname" placeholder="px-light-xxxx" autocomplete="off" />
+            <span class="field-hint">AP SSID &amp; mDNS: <strong id="hostname-preview">—</strong>.local</span>
+          </div>
+        </div>
+
+        <h3>MQTT</h3>
+        <div class="field-group">
+          <div class="field">
+            <label for="cfg-mqtt-host">Broker</label>
+            <input type="text" id="cfg-mqtt-host" placeholder="broker.local" />
+          </div>
+          <div class="field field-inline">
+            <label for="cfg-mqtt-port">Port</label>
+            <input type="number" id="cfg-mqtt-port" value="1883" min="1" max="65535" />
+          </div>
+          <div class="field">
+            <label for="cfg-mqtt-user">Username</label>
+            <input type="text" id="cfg-mqtt-user" placeholder="(optional)" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="cfg-mqtt-pass">Password</label>
+            <input type="password" id="cfg-mqtt-pass" placeholder="(leave blank to keep current)" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="cfg-base-topic">Base Topic</label>
+            <input type="text" id="cfg-base-topic" placeholder="paradox/lights/px-light-xxxx" />
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button type="button" id="btn-save-cfg">Save Settings</button>
+        </div>
+      </div>
     </section>
   </main>
 

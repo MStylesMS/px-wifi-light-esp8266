@@ -6,6 +6,13 @@
   function $(id) { return document.getElementById(id); }
   function setText(id, val) { var el = $(id); if (el) el.textContent = (val != null) ? val : '—'; }
 
+  // ---- white channel state ----
+  var s_white = false;
+  function updateWhiteBtn() {
+    var b = $('btn-white');
+    if (b) b.textContent = 'White: ' + (s_white ? 'ON' : 'OFF');
+  }
+
   function showMsg(text, isError) {
     var el = $('msg');
     if (!el) return;
@@ -78,6 +85,8 @@
     setText('mdns',       wifi.mdns);
     setText('uptime',     fmtUptime(d.uptime_s || 0));
     setText('free-heap',  ((d.free_heap || 0) / 1024).toFixed(1) + ' KB');
+    s_white = !!d.white;
+    updateWhiteBtn();
   }
 
   function loadState() {
@@ -157,6 +166,140 @@
     fetch('/api/reset', { method: 'POST' })
       .then(function () { showMsg('Factory reset done. Rebooting…'); })
       .catch(function (e) { showMsg('Error: ' + e, true); });
+  });
+
+  // ---- White toggle ----
+  $('btn-white').addEventListener('click', function () {
+    sendCommand({ command: 'setWhite', white: !s_white });
+  });
+
+  // ---- Settings section ----
+  $('settings-toggle').addEventListener('click', function () {
+    var body = $('settings-body');
+    var chev = $('settings-chevron');
+    if (body.classList.contains('hidden')) {
+      body.classList.remove('hidden');
+      if (chev) chev.textContent = '▼';
+      loadCfg();
+    } else {
+      body.classList.add('hidden');
+      if (chev) chev.textContent = '▶';
+    }
+  });
+
+  function showCfgMsg(text, isError) {
+    var el = $('cfg-msg');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.remove('hidden', 'error');
+    if (isError) el.classList.add('error');
+    if (!isError) setTimeout(function () { el.classList.add('hidden'); }, 4000);
+  }
+
+  function updateHostnamePreview() {
+    var val = $('cfg-hostname').value.trim().toLowerCase().replace(/\s+/g, '-');
+    var prev = $('hostname-preview');
+    if (prev) prev.textContent = val || '—';
+  }
+  $('cfg-hostname').addEventListener('input', updateHostnamePreview);
+
+  function validateHostname(v) {
+    if (!v) return 'Hostname cannot be empty';
+    if (v.length > 63) return 'Hostname too long (max 63 chars)';
+    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(v))
+      return 'Use only lowercase letters, numbers and hyphens; no leading/trailing hyphens';
+    return null;
+  }
+
+  function loadCfg() {
+    fetch('/api/config')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var primary = (d.wifi && d.wifi.primary) || {};
+        $('cfg-ssid').value      = primary.ssid || '';
+        $('cfg-wifi-pass').value = '';
+        var hn = (d.device && d.device.prop_name) || '';
+        $('cfg-hostname').value  = hn;
+        updateHostnamePreview();
+        var mqtt = d.mqtt || {};
+        $('cfg-mqtt-host').value  = mqtt.host      || '';
+        $('cfg-mqtt-port').value  = mqtt.port      || 1883;
+        $('cfg-mqtt-user').value  = mqtt.username  || '';
+        $('cfg-mqtt-pass').value  = '';
+        $('cfg-base-topic').value = mqtt.base_topic || '';
+      })
+      .catch(function (e) { showCfgMsg('Failed to load: ' + e, true); });
+  }
+
+  $('btn-scan').addEventListener('click', function () {
+    var btn  = $('btn-scan');
+    var list = $('scan-list');
+    btn.disabled = true;
+    btn.textContent = 'Scanning…';
+    list.innerHTML = '';
+    list.classList.add('hidden');
+    fetch('/api/scan')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        btn.disabled = false;
+        btn.textContent = '⟳ Scan';
+        var nets = d.networks || [];
+        if (!nets.length) {
+          list.innerHTML = '<li class="scan-item dim-text">No networks found</li>';
+        } else {
+          nets.sort(function (a, b) { return b.rssi - a.rssi; });
+          nets.forEach(function (n) {
+            var bars = n.rssi > -55 ? '▮▮▮▮' : n.rssi > -65 ? '▮▮▮▯' : n.rssi > -75 ? '▮▮▯▯' : '▮▯▯▯';
+            var li = document.createElement('li');
+            li.className = 'scan-item';
+            li.textContent = n.ssid + '  ' + bars + '  (' + n.rssi + ' dBm)' + (n.secure ? '  🔒' : '');
+            li.addEventListener('click', function () {
+              $('cfg-ssid').value = n.ssid;
+              list.classList.add('hidden');
+            });
+            list.appendChild(li);
+          });
+        }
+        list.classList.remove('hidden');
+      })
+      .catch(function (e) {
+        btn.disabled = false;
+        btn.textContent = '⟳ Scan';
+        showCfgMsg('Scan failed: ' + e, true);
+      });
+  });
+
+  $('btn-save-cfg').addEventListener('click', function () {
+    var hn = $('cfg-hostname').value.trim().toLowerCase().replace(/\s+/g, '-');
+    var hnErr = validateHostname(hn);
+    if (hnErr) { showCfgMsg(hnErr, true); return; }
+    var port = parseInt($('cfg-mqtt-port').value, 10);
+    if (isNaN(port) || port < 1 || port > 65535) { showCfgMsg('MQTT port must be 1–65535', true); return; }
+    var payload = {
+      device: { prop_name: hn },
+      wifi:   { primary: { ssid: $('cfg-ssid').value.trim() } },
+      mqtt:   {
+        host:       $('cfg-mqtt-host').value.trim(),
+        port:       port,
+        username:   $('cfg-mqtt-user').value.trim(),
+        base_topic: $('cfg-base-topic').value.trim()
+      }
+    };
+    var wp = $('cfg-wifi-pass').value;
+    if (wp) payload.wifi.primary.password = wp;
+    var mp = $('cfg-mqtt-pass').value;
+    if (mp) payload.mqtt.password = mp;
+    fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { showCfgMsg('Save failed: ' + (d.error || '?'), true); return; }
+        showCfgMsg(d.reboot_required ? 'Saved — device will reboot.' : 'Settings saved.', false);
+      })
+      .catch(function (e) { showCfgMsg('Error: ' + e, true); });
   });
 
   // Auto-refresh every 10 s.

@@ -138,6 +138,16 @@ bool handle(const JsonDocument& doc) {
         return true;
     }
 
+    // --- setWhite ---
+    if (strcmp(cmd, "setWhite") == 0) {
+        bool w = doc["white"] | false;
+        light_ctrl::set_white(w);
+        if (!w && !light_ctrl::state().r && !light_ctrl::state().g && !light_ctrl::state().b)
+            light_ctrl::set_on(false);
+        mqtt_mgr::publish_state();
+        return true;
+    }
+
     pxlog::warn(TAG, "unknown command: %s", cmd);
     mqtt_mgr::publish_warning("LIGHT_CMD_UNKNOWN",
                               (String("unknown command: ") + cmd).c_str(),
