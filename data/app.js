@@ -249,10 +249,10 @@
         } else {
           nets.sort(function (a, b) { return b.rssi - a.rssi; });
           nets.forEach(function (n) {
-            var bars = n.rssi > -55 ? '▮▮▮▮' : n.rssi > -65 ? '▮▮▮▯' : n.rssi > -75 ? '▮▮▯▯' : '▮▯▯▯';
+            var strength = n.rssi > -55 ? 'Strong' : n.rssi > -65 ? 'Good' : n.rssi > -75 ? 'Fair' : 'Weak';
             var li = document.createElement('li');
             li.className = 'scan-item';
-            li.textContent = n.ssid + '  ' + bars + '  (' + n.rssi + ' dBm)' + (n.secure ? '  🔒' : '');
+            li.textContent = n.ssid + '  ' + strength + '  (' + n.rssi + ' dBm)' + (n.secure ? '  [secured]' : '');
             li.addEventListener('click', function () {
               $('cfg-ssid').value = n.ssid;
               list.classList.add('hidden');
