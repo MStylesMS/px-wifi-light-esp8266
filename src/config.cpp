@@ -27,12 +27,20 @@ static String subst_xxxx(const String& s) {
 }
 
 void load_defaults(Config& c) {
-    c.prop_name           = "px-light-XXXX";
-    c.wifi_primary.ssid   = "";
+    c.prop_name             = "px-light-XXXX";
+    c.wifi_primary.ssid     = "";
     c.wifi_primary.password = "";
-    c.wifi_backup.ssid    = "";
-    c.wifi_backup.password = "";
-    c.ap_password         = "Paradox1";
+    c.wifi_backup.ssid      = "";
+    c.wifi_backup.password  = "";
+    c.ap_password           = "Paradox1";
+
+    c.mqtt_host                   = "";
+    c.mqtt_port                   = 1883;
+    c.mqtt_username               = "";
+    c.mqtt_password               = "";
+    c.mqtt_base_topic             = "paradox/lights/px-light-XXXX";
+    c.mqtt_announce_topic         = "paradox/props";
+    c.mqtt_heartbeat_interval_ms  = 10000;
 }
 
 static void substitute_placeholders(Config& c) {
@@ -150,6 +158,16 @@ bool to_json(const Config& c, JsonDocument& out) {
     wb["password"] = c.wifi_backup.password;
 
     out["wifi"]["ap_password"] = c.ap_password;
+
+    JsonObject mqtt = out["mqtt"].to<JsonObject>();
+    mqtt["host"]                   = c.mqtt_host;
+    mqtt["port"]                   = c.mqtt_port;
+    mqtt["username"]               = c.mqtt_username;
+    mqtt["password"]               = c.mqtt_password;
+    mqtt["base_topic"]             = c.mqtt_base_topic;
+    mqtt["announce_topic"]         = c.mqtt_announce_topic;
+    mqtt["heartbeat_interval_ms"]  = c.mqtt_heartbeat_interval_ms;
+
     return true;
 }
 
@@ -170,7 +188,32 @@ bool from_json(Config& c, const JsonDocument& in, String* err_out) {
     if (in["wifi"]["ap_password"].is<const char*>())
         c.ap_password = in["wifi"]["ap_password"].as<String>();
 
+    if (in["mqtt"]["host"].is<const char*>())
+        c.mqtt_host = in["mqtt"]["host"].as<String>();
+    if (in["mqtt"]["port"].is<uint16_t>())
+        c.mqtt_port = in["mqtt"]["port"].as<uint16_t>();
+    if (in["mqtt"]["username"].is<const char*>())
+        c.mqtt_username = in["mqtt"]["username"].as<String>();
+    if (in["mqtt"]["password"].is<const char*>())
+        c.mqtt_password = in["mqtt"]["password"].as<String>();
+    if (in["mqtt"]["base_topic"].is<const char*>())
+        c.mqtt_base_topic = in["mqtt"]["base_topic"].as<String>();
+    if (in["mqtt"]["announce_topic"].is<const char*>())
+        c.mqtt_announce_topic = in["mqtt"]["announce_topic"].as<String>();
+    if (in["mqtt"]["heartbeat_interval_ms"].is<uint32_t>())
+        c.mqtt_heartbeat_interval_ms = in["mqtt"]["heartbeat_interval_ms"].as<uint32_t>();
+
     return true;
+}
+
+bool reboot_required(const Config& a, const Config& b) {
+    return a.wifi_primary.ssid     != b.wifi_primary.ssid     ||
+           a.wifi_primary.password != b.wifi_primary.password ||
+           a.wifi_backup.ssid      != b.wifi_backup.ssid      ||
+           a.wifi_backup.password  != b.wifi_backup.password  ||
+           a.ap_password           != b.ap_password           ||
+           a.mqtt_host             != b.mqtt_host             ||
+           a.mqtt_port             != b.mqtt_port;
 }
 
 } // namespace cfg

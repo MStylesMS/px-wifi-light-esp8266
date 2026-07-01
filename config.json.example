@@ -4,7 +4,16 @@
   },
   "wifi": {
     "primary":    { "ssid": "YourPrimarySSID",  "password": "YourPrimaryPassword" },
-    "backup":     { "ssid": "YourBackupSSID",   "password": "YourBackupPassword"  },
+    "backup":     { "ssid": "",                 "password": ""                    },
     "ap_password": "Paradox1"
+  },
+  "mqtt": {
+    "host":                   "",
+    "port":                   1883,
+    "username":               "",
+    "password":               "",
+    "base_topic":             "paradox/lights/px-light-XXXX",
+    "announce_topic":         "paradox/props",
+    "heartbeat_interval_ms":  10000
   }
 }

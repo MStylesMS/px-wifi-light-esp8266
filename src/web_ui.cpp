@@ -1,8 +1,10 @@
-// web_ui.cpp — minimal web server + JSON status API.
+// web_ui.cpp — minimal web server + JSON status/state/light APIs.
 #include "web_ui.h"
 #include "log.h"
 #include "wifi_mgr.h"
 #include "ota_mgr.h"
+#include "state.h"
+#include "commands.h"
 
 #include <ArduinoJson.h>
 #include <ESP8266WebServer.h>
@@ -41,7 +43,7 @@ static void handle_static_js() {
         s_server.send(404, "text/plain", "not found");
 }
 
-// GET /api/status — returns JSON with network info.
+// GET /api/status — brief connectivity snapshot (used by the status page header).
 static void handle_get_status() {
     JsonDocument doc;
     doc["prop_name"]     = s_cfg->prop_name;
@@ -57,9 +59,82 @@ static void handle_get_status() {
     doc["sta_rssi"]      = wifi_mgr::sta_connected() ? wifi_mgr::sta_rssi() : 0;
     doc["mac"]           = wifi_mgr::mac_address();
     doc["mdns"]          = wifi_mgr::mdns_fqdn();
+    String body; serializeJson(doc, body);
+    s_server.send(200, "application/json", body);
+}
 
-    String body;
-    serializeJson(doc, body);
+// GET /api/state — full device state (same schema as MQTT /state topic).
+static void handle_get_state() {
+    JsonDocument doc;
+    appstate::build_state(*s_cfg, doc);
+    String body; serializeJson(doc, body);
+    s_server.send(200, "application/json", body);
+}
+
+// POST /api/light — accepts a Paradox light command JSON body.
+static void handle_post_light() {
+    if (!s_server.hasArg("plain")) {
+        s_server.send(400, "application/json", "{\"ok\":false,\"error\":\"empty body\"}");
+        return;
+    }
+    String body = s_server.arg("plain");
+    JsonDocument doc;
+    DeserializationError de = deserializeJson(doc, body);
+    if (de) {
+        String err = String("{\"ok\":false,\"error\":\"") + de.c_str() + "\"}";
+        s_server.send(400, "application/json", err);
+        return;
+    }
+    bool ok = commands::handle(doc);
+    s_server.send(ok ? 200 : 400,
+                  "application/json",
+                  ok ? "{\"ok\":true}" : "{\"ok\":false,\"error\":\"unknown or invalid command\"}");
+}
+
+// POST /api/config — partial config update.
+static void handle_post_config() {
+    if (!s_server.hasArg("plain")) {
+        s_server.send(400, "application/json", "{\"ok\":false,\"error\":\"empty body\"}");
+        return;
+    }
+    String body = s_server.arg("plain");
+    JsonDocument incoming;
+    DeserializationError de = deserializeJson(incoming, body);
+    if (de) {
+        String err = String("{\"ok\":false,\"error\":\"") + de.c_str() + "\"}";
+        s_server.send(400, "application/json", err);
+        return;
+    }
+    cfg::Config trial = *s_cfg;
+    String err;
+    if (!cfg::from_json(trial, incoming, &err)) {
+        s_server.send(400, "application/json",
+                      String("{\"ok\":false,\"error\":\"") + err + "\"}");
+        return;
+    }
+    bool reboot = cfg::reboot_required(*s_cfg, trial);
+    if (!cfg::save(trial)) {
+        s_server.send(500, "application/json", "{\"ok\":false,\"error\":\"save failed\"}");
+        return;
+    }
+    *s_cfg = trial;
+    if (reboot) {
+        s_reboot_pending = true;
+        s_reboot_at = millis() + 1500;
+    }
+    JsonDocument resp;
+    resp["ok"] = true;
+    resp["reboot_required"] = reboot;
+    String rbody; serializeJson(resp, rbody);
+    s_server.send(200, "application/json", rbody);
+    pxlog::info(TAG, "config saved (reboot_required=%d)", reboot ? 1 : 0);
+}
+
+// GET /api/config
+static void handle_get_config() {
+    JsonDocument doc;
+    cfg::to_json(*s_cfg, doc);
+    String body; serializeJson(doc, body);
     s_server.send(200, "application/json", body);
 }
 
@@ -71,7 +146,7 @@ static void handle_post_restart() {
     pxlog::warn(TAG, "reboot scheduled by web request");
 }
 
-// POST /api/reset  — factory reset
+// POST /api/reset — factory reset
 static void handle_post_reset() {
     cfg::wipe();
     s_server.send(200, "application/json", "{\"ok\":true,\"reboot\":true}");
@@ -87,6 +162,10 @@ void begin(cfg::Config* cfg) {
     s_server.on("/style.css",   HTTP_GET,  handle_static_css);
     s_server.on("/app.js",      HTTP_GET,  handle_static_js);
     s_server.on("/api/status",  HTTP_GET,  handle_get_status);
+    s_server.on("/api/state",   HTTP_GET,  handle_get_state);
+    s_server.on("/api/light",   HTTP_POST, handle_post_light);
+    s_server.on("/api/config",  HTTP_GET,  handle_get_config);
+    s_server.on("/api/config",  HTTP_POST, handle_post_config);
     s_server.on("/api/restart", HTTP_POST, handle_post_restart);
     s_server.on("/api/reset",   HTTP_POST, handle_post_reset);
 

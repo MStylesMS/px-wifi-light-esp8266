@@ -1,0 +1,184 @@
+// mqtt_mgr.cpp
+#include "mqtt_mgr.h"
+#include "log.h"
+#include "wifi_mgr.h"
+#include "state.h"
+
+#include <ESP8266WiFi.h>
+#include <PubSubClient.h>
+
+namespace mqtt_mgr {
+
+static const char* TAG = "mqtt";
+
+static cfg::Config*  s_cfg  = nullptr;
+static MessageCb     s_cb   = nullptr;
+static void*         s_user = nullptr;
+
+static WiFiClient    s_net;
+static PubSubClient  s_client(s_net);
+static String        s_subscribed_commands;
+
+static uint32_t s_last_connect_attempt = 0;
+static uint32_t s_last_heartbeat       = 0;
+static bool     s_announced            = false;
+
+static void write_uptime_ts(char* out, size_t n) {
+    snprintf(out, n, "uptime+%lus", (unsigned long)(millis() / 1000UL));
+}
+
+static bool publish_json(const char* topic, const JsonDocument& doc, bool retain = false) {
+    if (!s_client.connected()) return false;
+    size_t body_len = measureJson(doc);
+    if (body_len >= MQTT_MAX_PACKET_SIZE) {
+        pxlog::warn(TAG, "publish skipped: %s payload too large (%u bytes)",
+                    topic, (unsigned)body_len);
+        return false;
+    }
+    char body[MQTT_MAX_PACKET_SIZE];
+    size_t written = serializeJson(doc, body, sizeof(body));
+    bool ok = s_client.publish(topic, (const uint8_t*)body, written, retain);
+    if (!ok) pxlog::warn(TAG, "publish failed: %s (%u bytes)", topic, (unsigned)written);
+    return ok;
+}
+
+static void on_msg(char* topic, uint8_t* payload, unsigned int len) {
+    if (s_cb) s_cb(topic, payload, (size_t)len, s_user);
+}
+
+void begin(cfg::Config* c, MessageCb cb, void* user) {
+    s_cfg = c; s_cb = cb; s_user = user;
+    s_client.setBufferSize(MQTT_MAX_PACKET_SIZE);
+    s_client.setKeepAlive(MQTT_KEEPALIVE);
+    s_client.setCallback(on_msg);
+}
+
+bool connected() { return s_client.connected(); }
+
+bool publish_state() {
+    if (!s_cfg || !s_client.connected()) return false;
+    JsonDocument doc;
+    appstate::build_state(*s_cfg, doc);
+    String topic = s_cfg->mqtt_base_topic + "/state";
+    return publish_json(topic.c_str(), doc, /*retain=*/true);
+}
+
+bool publish_announce() {
+    if (!s_cfg || !s_client.connected()) return false;
+    if (!s_cfg->mqtt_announce_topic.length()) return false;
+    JsonDocument doc;
+    appstate::build_announce(*s_cfg, doc);
+    return publish_json(s_cfg->mqtt_announce_topic.c_str(), doc);
+}
+
+bool publish_event(const char* type, const char* event, const char* message,
+                   JsonVariantConst data) {
+    if (!s_cfg || !s_client.connected()) return false;
+    JsonDocument doc;
+    char ts[40]; write_uptime_ts(ts, sizeof(ts));
+    doc["timestamp"] = ts;
+    doc["type"]      = type ? type : "device";
+    doc["event"]     = event;
+    if (message) doc["message"] = message;
+    if (!data.isNull()) doc["data"] = data;
+    String topic = s_cfg->mqtt_base_topic + "/events";
+    return publish_json(topic.c_str(), doc);
+}
+
+bool publish_warning(const char* warning, const char* message, JsonVariantConst data) {
+    if (!s_cfg || !s_client.connected()) return false;
+    JsonDocument doc;
+    char ts[40]; write_uptime_ts(ts, sizeof(ts));
+    doc["timestamp"] = ts;
+    doc["warning"]   = warning;
+    if (message) doc["message"] = message;
+    if (!data.isNull()) doc["data"] = data;
+    String topic = s_cfg->mqtt_base_topic + "/warnings";
+    return publish_json(topic.c_str(), doc);
+}
+
+static bool try_connect() {
+    if (!wifi_mgr::sta_connected()) return false;
+    if (s_cfg->mqtt_host.length() == 0) return false;
+    if (s_client.connected()) return true;
+
+    s_client.setServer(s_cfg->mqtt_host.c_str(), s_cfg->mqtt_port);
+
+    String client_id = String("px-light-") + cfg::mac_suffix() + "-" + String(millis());
+
+    // Last-Will: offline tombstone, retained.
+    String will_topic = s_cfg->mqtt_base_topic + "/state";
+    JsonDocument will;
+    char ts[40]; write_uptime_ts(ts, sizeof(ts));
+    will["timestamp"]   = ts;
+    will["application"] = "px-wifi-light-esp8266";
+    will["instance"]    = s_cfg->prop_name;
+    will["status"]      = "offline";
+    char will_body[256];
+    serializeJson(will, will_body, sizeof(will_body));
+
+    bool ok;
+    if (s_cfg->mqtt_username.length()) {
+        ok = s_client.connect(client_id.c_str(),
+                              s_cfg->mqtt_username.c_str(),
+                              s_cfg->mqtt_password.c_str(),
+                              will_topic.c_str(), 1, true,
+                              will_body);
+    } else {
+        ok = s_client.connect(client_id.c_str(),
+                              will_topic.c_str(), 1, true,
+                              will_body);
+    }
+
+    if (!ok) {
+        pxlog::warn(TAG, "connect to %s:%u failed rc=%d",
+                    s_cfg->mqtt_host.c_str(), (unsigned)s_cfg->mqtt_port, s_client.state());
+        return false;
+    }
+
+    pxlog::info(TAG, "connected to %s:%u as %s",
+                s_cfg->mqtt_host.c_str(), (unsigned)s_cfg->mqtt_port, client_id.c_str());
+
+    // Subscribe to commands.
+    s_subscribed_commands = s_cfg->mqtt_base_topic + "/commands";
+    if (s_client.subscribe(s_subscribed_commands.c_str(), 1)) {
+        pxlog::info(TAG, "sub %s", s_subscribed_commands.c_str());
+    } else {
+        pxlog::warn(TAG, "sub FAILED %s", s_subscribed_commands.c_str());
+    }
+
+    s_announced = false;
+    return true;
+}
+
+void loop() {
+    if (!s_cfg) return;
+
+    uint32_t now = millis();
+
+    if (!s_client.connected()) {
+        // Retry with 5-second back-off.
+        if (now - s_last_connect_attempt >= 5000UL) {
+            s_last_connect_attempt = now;
+            try_connect();
+        }
+        return;
+    }
+
+    s_client.loop();
+
+    // Announce once per connection.
+    if (!s_announced) {
+        s_announced = true;
+        publish_announce();
+        publish_state();
+    }
+
+    // Periodic heartbeat.
+    if (now - s_last_heartbeat >= s_cfg->mqtt_heartbeat_interval_ms) {
+        s_last_heartbeat = now;
+        publish_state();
+    }
+}
+
+} // namespace mqtt_mgr

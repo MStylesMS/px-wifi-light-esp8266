@@ -9,11 +9,59 @@
 <body>
   <header>
     <h1>Paradox Lights</h1>
+    <span id="mqtt-badge" class="badge badge-off">MQTT</span>
   </header>
 
   <main>
-    <section id="status-section">
-      <h2>Device Status</h2>
+    <!-- Light control -->
+    <section>
+      <h2>Lights</h2>
+
+      <div class="light-preview">
+        <div id="color-swatch"></div>
+        <div class="light-meta">
+          <span id="light-state-label">—</span>
+          <span id="light-scene-label" class="dim-text"></span>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button type="button" id="btn-on">On</button>
+        <button type="button" id="btn-off" class="warn">Off</button>
+        <button type="button" id="btn-identify">Identify</button>
+      </div>
+
+      <h3>Scenes</h3>
+      <div class="scene-grid" id="scene-grid">
+        <button data-scene="white">White</button>
+        <button data-scene="warmWhite">Warm</button>
+        <button data-scene="softWhite">Soft</button>
+        <button data-scene="dim">Dim</button>
+        <button data-scene="red" style="--sc:#f00">Red</button>
+        <button data-scene="green" style="--sc:#0f0">Green</button>
+        <button data-scene="blue" style="--sc:#00f">Blue</button>
+        <button data-scene="yellow" style="--sc:#ff0">Yellow</button>
+        <button data-scene="orange" style="--sc:#f80">Orange</button>
+        <button data-scene="cyan" style="--sc:#0ff">Cyan</button>
+        <button data-scene="magenta" style="--sc:#f0f">Magenta</button>
+        <button data-scene="purple" style="--sc:#80f">Purple</button>
+      </div>
+
+      <h3>RGB</h3>
+      <div class="slider-group">
+        <label>R <input type="range" id="sl-r" min="0" max="255" value="0" /></label>
+        <label>G <input type="range" id="sl-g" min="0" max="255" value="0" /></label>
+        <label>B <input type="range" id="sl-b" min="0" max="255" value="0" /></label>
+        <label>Brightness <input type="range" id="sl-bright" min="0" max="100" value="100" /></label>
+      </div>
+      <div class="btn-row">
+        <button type="button" id="btn-apply-rgb">Apply RGB</button>
+      </div>
+    </section>
+
+    <!-- Device status -->
+    <section>
+      <h2>Device</h2>
       <table id="status-table">
         <tbody>
           <tr><th>Name</th><td id="prop-name">—</td></tr>
