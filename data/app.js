@@ -13,6 +13,24 @@
     if (b) b.textContent = 'White: ' + (s_white ? 'ON' : 'OFF');
   }
 
+  // ---- main on/off state ----
+  var s_main_on = false;
+  function updateMainBtn() {
+    var b = $('btn-main');
+    if (b) {
+      b.textContent = 'Main: ' + (s_main_on ? 'ON' : 'OFF');
+      b.className = s_main_on ? '' : 'warn';
+    }
+  }
+
+  // ---- UV channel state ----
+  var s_uv_on   = false;
+  var s_uv_last = 255;   // last non-zero level; used by toggle
+  function updateUvBtn() {
+    var b = $('btn-uv');
+    if (b) b.textContent = 'UV: ' + (s_uv_on ? 'ON' : 'OFF');
+  }
+
   // ---- WiFi signal strength bars ----
   function updateWifiStrength(rssi) {
     var el = $('wifi-strength');
@@ -105,6 +123,7 @@
     $('sl-g').value      = d.g || 0;
     $('sl-b').value      = d.b || 0;
     $('sl-bright').value = d.brightness != null ? d.brightness : 100;
+    $('sl-uv').value     = d.uv != null ? d.uv : 0;
     updateSliderLabels();
 
     // WiFi status
@@ -119,8 +138,22 @@
     setText('mdns',       wifi.mdns);
     setText('uptime',     fmtUptime(d.uptime_s || 0));
     setText('free-heap',  ((d.free_heap || 0) / 1024).toFixed(1) + ' KB');
+    s_main_on = !!d.on;
+    updateMainBtn();
     s_white = !!d.white;
     updateWhiteBtn();
+
+    // UV state
+    var uv = d.uv != null ? d.uv : 0;
+    var swUV = $('swatch-uv');
+    if (swUV) {
+      swUV.style.background = uv > 0
+        ? 'rgb(' + Math.round(128 * uv / 255) + ',0,' + uv + ')'
+        : '#111';
+    }
+    s_uv_on = uv > 0;
+    if (uv > 0) s_uv_last = uv;
+    updateUvBtn();
   }
 
   function loadState() {
@@ -132,7 +165,7 @@
 
   // ---- slider labels ----
   function updateSliderLabels() {
-    ['r','g','b','bright'].forEach(function (id) {
+    ['r','g','b','bright','uv'].forEach(function (id) {
       var el = $('sl-' + id);
       if (!el) return;
       var lbl = el.parentElement.querySelector('span');
@@ -140,7 +173,7 @@
     });
   }
 
-  ['sl-r','sl-g','sl-b','sl-bright'].forEach(function (id) {
+  ['sl-r','sl-g','sl-b','sl-bright','sl-uv'].forEach(function (id) {
     var el = $(id);
     if (el) el.addEventListener('input', updateSliderLabels);
   });
@@ -155,12 +188,9 @@
   });
 
   // ---- button handlers ----
-  $('btn-on').addEventListener('click', function () {
-    sendCommand({ command: 'on' });
-  });
-
-  $('btn-off').addEventListener('click', function () {
-    sendCommand({ command: 'off' });
+  // ---- Main toggle ----
+  $('btn-main').addEventListener('click', function () {
+    sendCommand({ command: s_main_on ? 'off' : 'on' });
   });
 
   $('btn-identify').addEventListener('click', function () {
@@ -205,6 +235,16 @@
   // ---- White toggle ----
   $('btn-white').addEventListener('click', function () {
     sendCommand({ command: 'setWhite', white: !s_white });
+  });
+
+  // ---- UV toggle / apply ----
+  $('btn-uv').addEventListener('click', function () {
+    sendCommand({ command: 'setUV', level: s_uv_on ? 0 : s_uv_last });
+  });
+
+  $('btn-apply-uv').addEventListener('click', function () {
+    var level = parseInt($('sl-uv').value, 10);
+    sendCommand({ command: 'setUV', level: level });
   });
 
   // ---- Settings section ----

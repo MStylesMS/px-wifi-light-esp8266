@@ -11,7 +11,7 @@ This document specifies **what the device does**. Update this document before ch
 
 The device has three cooperating concerns running in a single non-blocking cooperative loop:
 
-1. **Light output engine** — owns the four hardware channels (white on/off, RGB PWM), applies brightness scaling, and processes scene lookups.
+1. **Light output engine** — owns the five hardware channels (white on/off, UV PWM, RGB PWM), applies brightness scaling to RGB, and processes scene lookups.
 2. **MQTT command / state surface** — receives Paradox light commands, publishes retained state and heartbeats.
 3. **Network / Web UI surface** — WiFi (STA + always-on AP), HTTP settings / control page, OTA updates.
 
@@ -23,16 +23,19 @@ The device is **permanently powered**. "Off" means all channels at zero; the net
 
 ```
               ┌─────────────┐
-  D4 GPIO2 ───┤ White (dig) │──► white LED driver (on/off)
-  D5 GPIO14 ──┤ Green (PWM) │──► green LED driver (0–255)
-  D6 GPIO12 ──┤ Red   (PWM) │──► red   LED driver (0–255)
-  D7 GPIO13 ──┤ Blue  (PWM) │──► blue  LED driver (0–255)
+  D1 GPIO5  ──┤ White (dig) ├──► white LED driver (on/off)
+  D4 GPIO2  ──┤ UV    (PWM) ├──► UV    LED driver (0–255) [independent]
+  D5 GPIO14 ──┤ Green (PWM) ├──► green LED driver (0–255)
+  D6 GPIO12 ──┤ Red   (PWM) ├──► red   LED driver (0–255)
+  D7 GPIO13 ──┤ Blue  (PWM) ├──► blue  LED driver (0–255)
               └─────────────┘
 ```
 
-All four channels are **active-HIGH** (HIGH = on). PWM channels use ESP8266 software PWM at 1 kHz. A global `brightness` scaler (0–100 %) is applied to RGB channels before writing to hardware.
+All five channels are **active-HIGH** (HIGH = on). PWM channels use ESP8266 software PWM at 1 kHz. A global `brightness` scaler (0–100 %) is applied to RGB channels before writing to hardware.
 
 The white channel is digital (full-on or full-off) and is **not** affected by the brightness scaler.
+
+The UV channel is **fully independent**: it is not gated by the master `on` flag, not affected by `brightness`, and not modified by scenes. It must be controlled explicitly via `setUV`.
 
 ---
 
@@ -42,11 +45,12 @@ The canonical light state has six fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `on` | bool | Master output enable. `false` forces all channels to zero. |
-| `white` | bool | White channel (D4). Ignored when `on=false`. |
+| `on` | bool | Master output enable. `false` forces white and RGB channels to zero. Does **not** affect UV. |
+| `white` | bool | White channel (D1). Ignored when `on=false`. |
 | `r`, `g`, `b` | uint8 0–255 | RGB channel targets. Scaled by `brightness` at output. |
-| `brightness` | uint8 0–100 | Global PWM scaler (%). Does not affect white channel. |
-| `scene` | string | Last named scene applied, or `""`. |
+| `brightness` | uint8 0–100 | Global PWM scaler (%). Does not affect white or UV channels. |
+| `uv` | uint8 0–255 | UV channel level (D4). Fully independent — not affected by `on`, `brightness`, or scenes. |
+| `scene` | string | Last named scene applied, or `""`. UV is never modified by scene changes. |
 
 All state transitions take effect immediately and are reflected in the next MQTT state publish.
 
@@ -69,6 +73,7 @@ All commands follow the Paradox command envelope:
 | `setColor` | `color: "#rrggbb"` or `{r,g,b}`, optional `brightness` | Set RGB, turn white off, set `on=true`. |
 | `setWhite` | `white: true\|false` | Turn white channel on or off. `false` + no RGB active turns `on=false`. |
 | `setBrightness` | `brightness: 0–100` | Set brightness scaler. Sets `on=true` if currently off. |
+| `setUV` | `level: 0–255` | Set UV channel level. Independent of on/off and brightness. |
 | `setColorScene` / `scene` | `scene: "<name>"` | Apply a named scene (see §5). |
 | `getState` / `getStatus` | — | Re-publish retained state immediately. |
 | `identify` | — | Flash all channels full-white for 2 s, then restore prior state. |
@@ -86,9 +91,9 @@ Scenes are resolved by `light_ctrl::apply_scene()`. Name matching is case-insens
 |------------|:-----:|---|---|---|:----------:|
 | `off` | off | 0 | 0 | 0 | 100 |
 | `white` / `normal` / `brightWhite` | on | 0 | 0 | 0 | 100 |
-| `softWhite` | on | 0 | 0 | 0 | 50 |
+| `softWhite` | off | 255 | 223 | 223 | 50 |
 | `warmWhite` | on | 32 | 8 | 0 | 100 |
-| `dim` | on | 0 | 0 | 0 | 30 |
+| `dim` | off | 255 | 255 | 255 | 30 |
 | `coolWhite` | off | 80 | 80 | 255 | 100 |
 | `red` | off | 255 | 0 | 0 | 100 |
 | `green` | off | 0 | 255 | 0 | 100 |
@@ -110,8 +115,13 @@ Scenes are resolved by `light_ctrl::apply_scene()`. Name matching is case-insens
 |-------|-----------|:--------:|-------------|
 | `{base_topic}/commands` | IN | no | Receives Paradox command payloads |
 | `{base_topic}/state` | OUT | **yes** | Full device state; published on connect, on change, and every `heartbeat_interval_ms` |
+| `{base_topic}/scenes` | OUT | **yes** | Available colour scenes; published once per MQTT connection |
 | `{base_topic}/events` | OUT | no | Command outcomes and device events |
 | `{base_topic}/warnings` | OUT | no | Validation failures, unknown commands |
+
+### Scenes publish
+
+On each MQTT connection, immediately after the state publish, the device publishes a retained payload to `{base_topic}/scenes` listing the scenes available for the `setColorScene` command. The list is fixed at compile time; each entry carries an `id` (passed to `setColorScene`), a human-readable `label`, and a `swatch` hex colour for UI rendering. A newly connecting subscriber receives this payload immediately from the broker without waiting for a heartbeat.
 
 ### Heartbeat
 

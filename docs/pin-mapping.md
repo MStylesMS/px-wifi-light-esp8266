@@ -20,7 +20,8 @@ Authoritative GPIO table. These assignments must not change without a hardware r
 
 | NodeMCU label | GPIO | Direction | Role | Notes |
 |---------------|------|-----------|------|-------|
-| D4 | GPIO2 | OUT digital | White channel (on/off) | Boot-strap: must be HIGH at reset. On-board LED active-LOW also wired here on some carriers — LED will blink inverted to the white output. Active-HIGH drive to transistor/MOSFET assumed. |
+| D1 | GPIO5 | OUT digital | White channel (on/off) | Digital on/off; no bootstrap constraint. Active-HIGH drive to MOSFET/transistor. |
+| D4 | GPIO2 | OUT PWM | UV channel (0–255) | Software PWM at 1 kHz. Boot-strap: must be HIGH at reset — UV fires briefly during boot ROM phase. |
 | D5 | GPIO14 | OUT PWM | Green channel (0–255) | Software PWM at 1 kHz |
 | D6 | GPIO12 | OUT PWM | Red channel (0–255) | Software PWM at 1 kHz |
 | D7 | GPIO13 | OUT PWM | Blue channel (0–255) | Software PWM at 1 kHz |
@@ -30,7 +31,6 @@ Authoritative GPIO table. These assignments must not change without a hardware r
 
 | NodeMCU label | GPIO | Notes |
 |---------------|------|-------|
-| D1 | GPIO5 | Free — I2C SCL candidate for future expansion |
 | D2 | GPIO4 | Free — I2C SDA candidate for future expansion |
 | D8 | GPIO15 | Boot-strap LOW; usable as output after boot |
 | D0 | GPIO16 | No internal pull-up; deep-sleep wake (unused) |
@@ -43,7 +43,7 @@ At reset the ESP8266 boot ROM samples three pins to determine boot mode:
 | Pin | Required state | How guaranteed |
 |-----|---------------|----------------|
 | GPIO0 (D3) | HIGH (normal boot) | External pull-up or button released |
-| GPIO2 (D4) | HIGH | White channel transistor pulls LOW only after boot; not a concern if transistor is OFF by default |
+| GPIO2 (D4) | HIGH | UV channel MOSFET; UV fires briefly during boot ROM phase then driven to 0 by begin() |
 | GPIO15 (D8) | LOW | On-board pull-down on NodeMCU |
 
 ## Compile-time constants
@@ -52,10 +52,11 @@ Defined in `src/config.h`:
 
 ```cpp
 namespace pins {
-    inline constexpr uint8_t WHITE     = 2;   // D4 / GPIO2
+    inline constexpr uint8_t WHITE     = 5;   // D1 / GPIO5
     inline constexpr uint8_t GREEN     = 14;  // D5 / GPIO14
     inline constexpr uint8_t RED       = 12;  // D6 / GPIO12
     inline constexpr uint8_t BLUE      = 13;  // D7 / GPIO13
+    inline constexpr uint8_t UV        = 2;   // D4 / GPIO2
     inline constexpr uint8_t FLASH_BTN = 0;   // D3 / GPIO0
 }
 ```

@@ -7,11 +7,13 @@ namespace light_ctrl {
 
 static const char* TAG = "light";
 
-static State s_state = { false, false, 0, 0, 0, 100, "" };
+static State s_state = { true, true, 0, 0, 0, 100, "" };  // boot default: white on
 
 static bool     s_identify_active = false;
 static uint32_t s_identify_until  = 0;
 static State    s_pre_identify;
+
+static uint8_t  s_uv_level = 0;
 
 // Clamp helper
 static uint8_t clamp8(int v) {
@@ -25,12 +27,11 @@ static uint8_t clamp8(int v) {
 // MOSFETs are IRLB8721 (N-channel, enhancement mode).
 // Gate HIGH → MOSFET ON → LED on. Active-HIGH drive is correct.
 //
-// Boot/failsafe note: GPIO2 (White) is held HIGH by the ESP8266 bootstrap
-// circuit (required for normal boot mode). With an N-channel MOSFET this
-// means the white channel is ON during the boot ROM phase — intentional.
-// If the firmware ever fails to start, white stays on as the hardware-level
-// default. Once this function is called from begin(), the firmware takes
-// control and can drive it to whatever state it needs.
+// Boot/failsafe note: GPIO2 (D4, UV channel) is held HIGH by the ESP8266
+// bootstrap circuit (required for normal boot mode). This means the UV strip
+// fires briefly during the boot ROM phase — unavoidable but typically
+// imperceptible. begin() drives it to 0 immediately on startup.
+// White (D1/GPIO5) has no bootstrap constraint and starts low.
 static void apply_hw() {
     if (!s_state.on) {
         digitalWrite(pins::WHITE, LOW);
@@ -47,6 +48,12 @@ static void apply_hw() {
     analogWrite(pins::BLUE,  clamp8((int)(s_state.b * scale)));
 }
 
+// UV channel is driven at its stored level at all times, independent of
+// the main on/off/brightness state.
+static void apply_uv_hw() {
+    analogWrite(pins::UV, s_uv_level);
+}
+
 void begin() {
     // Use 8-bit PWM range (matches r/g/b byte values directly).
     analogWriteRange(255);
@@ -56,9 +63,11 @@ void begin() {
     pinMode(pins::RED,   OUTPUT);
     pinMode(pins::GREEN, OUTPUT);
     pinMode(pins::BLUE,  OUTPUT);
+    pinMode(pins::UV,    OUTPUT);
 
     // Start with everything off.
     apply_hw();
+    apply_uv_hw();
     pxlog::info(TAG, "begin: all channels off");
 }
 
@@ -104,13 +113,20 @@ struct SceneEntry {
 // Scene table aligned with PxB scene names (docs/api.md).
 static const SceneEntry k_scenes[] = {
     { "off",         false, false,   0,   0,   0, 100 },
-    { "white",       true,  true,    0,   0,   0, 100 },
+    { "white",       true,  true,    0,   0, 255, 100 },
     { "normal",      true,  true,    0,   0,   0, 100 },
-    { "brightWhite", true,  true,    0,   0,   0, 100 },
-    { "softWhite",   true,  true,    0,   0,   0,  50 },
-    { "warmWhite",   true,  true,   32,   8,   0, 100 },  // white + warm RGB tint
-    { "dim",         true,  true,    0,   0,   0,  30 },
-    { "coolWhite",   true,  false,  80,  80, 255, 100 },  // cool-blue RGB only
+    { "brightWhite", true,  true,  255, 255, 255, 100 },
+    { "softWhite",   true,  true,  128,   0,   0, 100 }, 
+    { "warmWhite",   true,  true,  255,   0,   0, 100 }, 
+    { "dim",         true,  false, 255, 255, 255, 100 }, 
+    { "coolWhite",   true,  true,    0,   0, 255, 100 }, 
+    { "nightLight",  true,  false,  96,  32,  16, 100 },
+    { "reading",     true,  false, 255, 255, 128, 100 },
+    { "relax",       true,  false, 255, 128,   0, 100 },
+    { "party",       true,  false, 255,   0, 255, 100 },
+    { "romantic",    true,  false, 255,   0,   0, 100 },
+    { "sunset",      true,  false, 255,   0,   0, 100 },
+    { "sunrise",     true,  false,   0,   0,   0,   0 },
     { "red",         true,  false, 255,   0,   0, 100 },
     { "green",       true,  false,   0, 255,   0, 100 },
     { "blue",        true,  false,   0,   0, 255, 100 },
@@ -164,6 +180,14 @@ void tick() {
         pxlog::info(TAG, "identify ended");
     }
 }
+
+void set_uv(uint8_t level) {
+    s_uv_level = level;
+    apply_uv_hw();
+    pxlog::info(TAG, "uv=%u", (unsigned)level);
+}
+
+uint8_t uv_level() { return s_uv_level; }
 
 const State& state() { return s_state; }
 

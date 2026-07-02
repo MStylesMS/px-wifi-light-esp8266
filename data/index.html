@@ -33,6 +33,11 @@
             <div id="swatch-blend" title="Combined (approx)"></div>
             <span class="swatch-label">~</span>
           </div>
+          <span class="swatch-sep">|</span>
+          <div class="swatch-col">
+            <div id="swatch-uv" title="UV channel"></div>
+            <span class="swatch-label">UV</span>
+          </div>
         </div>
         <div class="light-meta">
           <span id="light-state-label">—</span>
@@ -41,18 +46,20 @@
       </div>
 
       <div class="btn-row">
-        <button type="button" id="btn-on">On</button>
-        <button type="button" id="btn-off" class="warn">Off</button>
+        <button type="button" id="btn-main">Main: —</button>
         <button type="button" id="btn-white">White: —</button>
+        <button type="button" id="btn-uv">UV: OFF</button>
         <button type="button" id="btn-identify">Identify</button>
       </div>
 
       <h3>Scenes</h3>
       <div class="scene-grid" id="scene-grid">
         <button data-scene="white">White</button>
+        <button data-scene="brightWhite">Bright White</button>
         <button data-scene="warmWhite">Warm</button>
         <button data-scene="softWhite">Soft</button>
         <button data-scene="dim">Dim</button>
+        <button data-scene="nightLight" style="--sc:#600840">Night Light</button>
         <button data-scene="red" style="--sc:#f00">Red</button>
         <button data-scene="green" style="--sc:#0f0">Green</button>
         <button data-scene="blue" style="--sc:#00f">Blue</button>
@@ -72,6 +79,14 @@
       </div>
       <div class="btn-row">
         <button type="button" id="btn-apply-rgb">Apply RGB</button>
+      </div>
+
+      <h3>UV</h3>
+      <div class="slider-group">
+        <label>Brightness <input type="range" id="sl-uv" min="0" max="255" value="0" /></label>
+      </div>
+      <div class="btn-row">
+        <button type="button" id="btn-apply-uv">Apply UV</button>
       </div>
     </section>
 

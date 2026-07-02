@@ -50,6 +50,7 @@ curl http://<host>/api/state
   "white": false,
   "r": 255, "g": 0, "b": 128,
   "brightness": 100,
+  "uv": 0,
   "scene": "magenta",
   "wifi": {
     "sta_connected": true,
@@ -172,6 +173,7 @@ Topics are relative to `{base_topic}` from the device config (default `paradox/l
 |-------|-----------|:--------:|-------------|
 | `{base_topic}/commands` | IN | no | Light command payloads |
 | `{base_topic}/state` | OUT | **yes** | Full device state (heartbeat + on-change) |
+| `{base_topic}/scenes` | OUT | **yes** | Available colour scenes (published on connect) |
 | `{base_topic}/events` | OUT | no | Command outcomes and device events |
 | `{base_topic}/warnings` | OUT | no | Validation failures, unknown commands |
 
@@ -185,6 +187,7 @@ All commands follow the Paradox envelope `{"command":"<name>", ...params}`.
 | `off` / `allOff` | — | — | All channels off |
 | `setColor` | `color` | `brightness` | Set RGB (`"#rrggbb"` or `{r,g,b}`); white off |
 | `setWhite` | `white` (bool) | — | Toggle white channel; `false` + no RGB turns device off |
+| `setUV` | `level` (0–255) | — | Set UV channel level; independent of on/off/brightness |
 | `setBrightness` | `brightness` (0–100) | — | Set PWM scaler |
 | `setColorScene` / `scene` | `scene` (string) | — | Apply named scene |
 | `getState` / `getStatus` | — | — | Force-publish state |
@@ -202,7 +205,39 @@ Retained. See §2.2 for the full schema.
 | `LIGHT_CMD_UNKNOWN` | `command` name not recognised |
 | `LIGHT_CMD_INVALID` | Required parameter missing or malformed |
 
-### 3.5 Announce
+### 3.5 Scenes (`{base_topic}/scenes`)
+
+Published with **retain=true** immediately after each MQTT connection. A newly connecting UI subscriber receives this payload without waiting for the next heartbeat.
+
+```json
+{
+  "scenes": [
+    { "id": "white",     "label": "White",       "swatch": "#F4F4F4" },
+    { "id": "warmWhite", "label": "Warm White",  "swatch": "#FFE4B0" },
+    { "id": "softWhite", "label": "Soft White",  "swatch": "#FFF0C0" },
+    { "id": "dim",       "label": "Night Light", "swatch": "#FF8C00" },
+    { "id": "red",       "label": "Red",         "swatch": "#FF0000" },
+    { "id": "orange",    "label": "Orange",      "swatch": "#FF6E00" },
+    { "id": "yellow",    "label": "Yellow",      "swatch": "#FFDC00" },
+    { "id": "green",     "label": "Green",       "swatch": "#00FF5A" },
+    { "id": "cyan",      "label": "Cyan",        "swatch": "#00DCFF" },
+    { "id": "blue",      "label": "Blue",        "swatch": "#0046FF" },
+    { "id": "magenta",   "label": "Magenta",     "swatch": "#FF00C8" },
+    { "id": "purple",    "label": "Purple",      "swatch": "#AA3CFF" },
+    { "id": "off",       "label": "Off",         "swatch": "#000000" }
+  ]
+}
+```
+
+Each entry:
+
+| Field | Description |
+|-------|-------------|
+| `id` | The scene identifier to pass in a `setColorScene` command |
+| `label` | Human-readable display name |
+| `swatch` | CSS hex colour representing the scene visually |
+
+### 3.6 Announce
 
 On each MQTT connection the device publishes to `mqtt.announce_topic` (default `paradox/props`):
 

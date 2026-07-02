@@ -28,6 +28,7 @@ void build_state(const cfg::Config& c, JsonDocument& out) {
     out["g"]          = ls.g;
     out["b"]          = ls.b;
     out["brightness"] = ls.brightness;
+    out["uv"]         = light_ctrl::uv_level();
     if (ls.scene.length())
         out["scene"] = ls.scene;
     else

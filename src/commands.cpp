@@ -148,6 +148,20 @@ bool handle(const JsonDocument& doc) {
         return true;
     }
 
+    // --- setUV ---
+    if (strcmp(cmd, "setUV") == 0) {
+        if (!doc["level"].is<int>()) {
+            mqtt_mgr::publish_warning("LIGHT_CMD_INVALID", "missing level field", JsonVariantConst());
+            return false;
+        }
+        int lvl = doc["level"].as<int>();
+        if (lvl < 0)   lvl = 0;
+        if (lvl > 255) lvl = 255;
+        light_ctrl::set_uv((uint8_t)lvl);
+        mqtt_mgr::publish_state();
+        return true;
+    }
+
     pxlog::warn(TAG, "unknown command: %s", cmd);
     mqtt_mgr::publish_warning("LIGHT_CMD_UNKNOWN",
                               (String("unknown command: ") + cmd).c_str(),

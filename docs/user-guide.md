@@ -7,9 +7,10 @@
 
 ## 1. What It Does
 
-The px-wifi-light is a WiFi-connected RGBW light controller for Paradox Productions escape rooms. It controls four output channels:
+The px-wifi-light is a WiFi-connected RGB+White+UV light controller for Paradox Productions escape rooms. It controls five output channels:
 
-- **White** — on/off (D4/GPIO2)
+- **White** — on/off (D1/GPIO5)
+- **UV** — PWM 0–255, fully independent channel (D4/GPIO2)
 - **Red** — PWM 0–100% (D6/GPIO12)
 - **Green** — PWM 0–100% (D5/GPIO14)
 - **Blue** — PWM 0–100% (D7/GPIO13)

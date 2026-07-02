@@ -14,6 +14,7 @@ void loop();
 bool connected();
 
 bool publish_state();
+bool publish_scenes();
 bool publish_announce();
 bool publish_event(const char* type, const char* event, const char* message,
                    JsonVariantConst data);
