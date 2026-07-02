@@ -379,5 +379,5 @@
   // Auto-refresh every 10 s.
   loadMqttInfo();
   loadState();
-  setInterval(loadState, 10000);
+  setInterval(function () { loadMqttInfo(); loadState(); }, 10000);
 }());
