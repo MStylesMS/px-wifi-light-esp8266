@@ -13,6 +13,27 @@
     if (b) b.textContent = 'White: ' + (s_white ? 'ON' : 'OFF');
   }
 
+  // ---- WiFi signal strength bars ----
+  function updateWifiStrength(rssi) {
+    var el = $('wifi-strength');
+    if (!el) return;
+    if (rssi == null) { el.className = 'wifi-bars'; return; }
+    var s = rssi > -55 ? 4 : rssi > -65 ? 3 : rssi > -75 ? 2 : 1;
+    el.className = 'wifi-bars s' + s;
+  }
+
+  // ---- MQTT info (fetched once from config) ----
+  function loadMqttInfo() {
+    fetch('/api/config')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var mqtt = d.mqtt || {};
+        setText('mqtt-broker', mqtt.host ? mqtt.host + ':' + (mqtt.port || 1883) : '—');
+        setText('mqtt-topic', mqtt.base_topic || '—');
+      })
+      .catch(function () {});
+  }
+
   function showMsg(text, isError) {
     var el = $('msg');
     if (!el) return;
@@ -94,6 +115,7 @@
     setText('sta-ip',     wifi.sta_connected ? wifi.sta_ip : 'not connected');
     setText('sta-ssid',   wifi.sta_connected ? wifi.sta_ssid : '—');
     setText('sta-rssi',   wifi.sta_connected ? wifi.rssi + ' dBm' : '—');
+    updateWifiStrength(wifi.sta_connected ? wifi.rssi : null);
     setText('mdns',       wifi.mdns);
     setText('uptime',     fmtUptime(d.uptime_s || 0));
     setText('free-heap',  ((d.free_heap || 0) / 1024).toFixed(1) + ' KB');
@@ -315,6 +337,7 @@
   });
 
   // Auto-refresh every 10 s.
+  loadMqttInfo();
   loadState();
   setInterval(loadState, 10000);
 }());
