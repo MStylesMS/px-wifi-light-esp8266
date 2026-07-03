@@ -11,7 +11,7 @@ namespace pins {
     inline constexpr uint8_t GREEN     = 14;  // D5 / GPIO14 — PWM
     inline constexpr uint8_t RED       = 12;  // D6 / GPIO12 — PWM
     inline constexpr uint8_t BLUE      = 13;  // D7 / GPIO13 — PWM
-    inline constexpr uint8_t UV        = 2;   // D4 / GPIO2  — PWM 0-255
+    inline constexpr uint8_t UV        = 4;   // D2 / GPIO4  — PWM 0-255
     inline constexpr uint8_t FLASH_BTN = 0;   // GPIO0 / D3  — factory reset
 } // namespace pins
 

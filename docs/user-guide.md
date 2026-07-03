@@ -10,7 +10,7 @@
 The px-wifi-light is a WiFi-connected RGB+White+UV light controller for Paradox Productions escape rooms. It controls five output channels:
 
 - **White** — on/off (D1/GPIO5)
-- **UV** — PWM 0–255, fully independent channel (D4/GPIO2)
+- **UV** — PWM 0–255, fully independent channel (D2/GPIO4)
 - **Red** — PWM 0–100% (D6/GPIO12)
 - **Green** — PWM 0–100% (D5/GPIO14)
 - **Blue** — PWM 0–100% (D7/GPIO13)
@@ -45,6 +45,7 @@ All settings are stored in `/config.json` on the device's internal flash (Little
 | `mqtt.port` | `1883` | MQTT broker port |
 | `mqtt.base_topic` | `paradox/lights/px-light-XXXX` | Root topic for this device |
 | `mqtt.heartbeat_interval_ms` | `10000` | How often to publish state (ms) |
+| `light.default_fade_time_s` | `1.0` | Fallback fade duration (s) used when a light command omits `fadeTime` |
 
 ### 3.2 Changing settings via the Web UI
 
@@ -84,6 +85,7 @@ The web UI at `http://192.168.4.1/` provides:
 - **RGB sliders** for custom colours
 - **Brightness** slider
 - Live state display (colour swatch, current scene, MQTT status)
+- **Default Fade Time** shown on the Device panel and editable under Settings > Light — controls how long `on`/`off`/colour/scene changes take to transition when a command doesn't specify its own `fadeTime` (see `docs/api.md` §Fading)
 
 ---
 
@@ -122,7 +124,6 @@ Factory reset erases `/config.json`; the device reboots into built-in defaults w
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
 | AP not appearing | Device crashed at boot | Serial monitor for errors; factory reset |
-| White channel flickers at boot | GPIO2 bootstrap | Expected on some boards (on-board LED also on GPIO2); safe to ignore |
 | MQTT not connecting | `mqtt.host` not set or unreachable | Check config via Web UI; verify broker is running |
 | Colour wrong | Red/green/blue channels may be swapped on your wiring | Swap `pins::RED` / `pins::GREEN` / `pins::BLUE` in `src/config.h` and re-flash |
 | OTA times out | PC not on same network as device | Use AP IP (192.168.4.1) or switch PC to same LAN |

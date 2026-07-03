@@ -2,7 +2,7 @@
 //
 // Channels (LoLin NodeMCU V3, see docs/pin-mapping.md):
 //   D1 / GPIO5  — White  (digital on/off, active-HIGH)
-//   D4 / GPIO2  — UV     (software PWM 0-255, fully independent channel)
+//   D2 / GPIO4  — UV     (software PWM 0-255, fully independent channel)
 //   D5 / GPIO14 — Green  (software PWM 0-255)
 //   D6 / GPIO12 — Red    (software PWM 0-255)
 //   D7 / GPIO13 — Blue   (software PWM 0-255)

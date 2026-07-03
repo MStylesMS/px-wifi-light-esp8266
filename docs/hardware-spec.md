@@ -27,14 +27,14 @@ The LoLin V3 is physically wider (30 pins including extra GND/3V3/VIN power rail
 | Channel | NodeMCU | GPIO | Type | Load |
 |---------|---------|------|------|------|
 | White | D1 | 5 | Digital on/off | White LED strip or bulb via transistor/MOSFET |
-| UV | D4 | 2 | PWM 0–255 | UV LED strip via transistor/MOSFET |
+| UV | D2 | 4 | PWM 0–255 | UV LED strip via transistor/MOSFET |
 | Red | D6 | 12 | PWM 0–255 | Red LED strip via transistor/MOSFET |
 | Green | D5 | 14 | PWM 0–255 | Green LED strip via transistor/MOSFET |
 | Blue | D7 | 13 | PWM 0–255 | Blue LED strip via transistor/MOSFET |
 
 All outputs are **active-HIGH**, 3.3 V logic.  A transistor or MOSFET driver stage is required between the ESP8266 GPIO and any LED load.
 
-The UV channel (D4/GPIO2) is **fully independent** — it is not gated by the master on/off state and must be controlled explicitly via the `setUV` command.
+The UV channel (D2/GPIO4) is **fully independent** — it is not gated by the master on/off state and must be controlled explicitly via the `setUV` command.
 
 > **Wiring lost.** The original wiring diagram was not preserved. Verify actual driver polarity before power-on.
 

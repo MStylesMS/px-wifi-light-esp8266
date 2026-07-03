@@ -24,7 +24,7 @@ The device is **permanently powered**. "Off" means all channels at zero; the net
 ```
               ┌─────────────┐
   D1 GPIO5  ──┤ White (dig) ├──► white LED driver (on/off)
-  D4 GPIO2  ──┤ UV    (PWM) ├──► UV    LED driver (0–255) [independent]
+  D2 GPIO4  ──┤ UV    (PWM) ├──► UV    LED driver (0–255) [independent]
   D5 GPIO14 ──┤ Green (PWM) ├──► green LED driver (0–255)
   D6 GPIO12 ──┤ Red   (PWM) ├──► red   LED driver (0–255)
   D7 GPIO13 ──┤ Blue  (PWM) ├──► blue  LED driver (0–255)

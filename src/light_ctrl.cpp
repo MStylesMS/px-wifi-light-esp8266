@@ -48,11 +48,10 @@ static void cancel_fade() {
 // MOSFETs are IRLB8721 (N-channel, enhancement mode).
 // Gate HIGH → MOSFET ON → LED on. Active-HIGH drive is correct.
 //
-// Boot/failsafe note: GPIO2 (D4, UV channel) is held HIGH by the ESP8266
-// bootstrap circuit (required for normal boot mode). This means the UV strip
-// fires briefly during the boot ROM phase — unavoidable but typically
-// imperceptible. begin() drives it to 0 immediately on startup.
-// White (D1/GPIO5) has no bootstrap constraint and starts low.
+// Boot/failsafe note: UV (D2/GPIO4) and White (D1/GPIO5) have no bootstrap
+// constraint and both start low/off. (Previously UV was on GPIO2, which is
+// held HIGH by the ESP8266 bootstrap circuit and would flash briefly at
+// boot — that concern no longer applies now that UV has moved to GPIO4.)
 static void apply_hw() {
     if (!s_state.on) {
         digitalWrite(pins::WHITE, LOW);
