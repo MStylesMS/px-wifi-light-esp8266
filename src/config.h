@@ -39,6 +39,13 @@ struct Config {
     String   mqtt_base_topic;
     String   mqtt_announce_topic;
     uint32_t mqtt_heartbeat_interval_ms;
+
+    // light
+    // Fade duration (seconds) used for on/off/setBrightness/setColor/fade
+    // commands that omit "fadeTime". An explicit "fadeTime" (including 0)
+    // in a command always overrides this. Settable via /api/config or the
+    // MQTT "setDefaultFadeTime" command (see commands.cpp).
+    float    default_fade_time_s;
 };
 
 // Returns the last 4 hex chars of the MAC address (available after WiFi init).

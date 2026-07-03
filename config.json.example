@@ -15,5 +15,8 @@
     "base_topic":             "paradox/lights/px-light-XXXX",
     "announce_topic":         "paradox/props",
     "heartbeat_interval_ms":  10000
+  },
+  "light": {
+    "default_fade_time_s": 1.0
   }
 }

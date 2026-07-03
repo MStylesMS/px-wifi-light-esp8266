@@ -106,6 +106,7 @@
           <tr><th>Topic</th><td id="mqtt-topic">—</td></tr>
           <tr><th>Uptime</th><td id="uptime">—</td></tr>
           <tr><th>Free heap</th><td id="free-heap">—</td></tr>
+          <tr><th>Default Fade</th><td id="fade-time">—</td></tr>
         </tbody>
       </table>
 
@@ -171,6 +172,17 @@
             <label for="cfg-base-topic">Base Topic</label>
             <input type="text" id="cfg-base-topic" placeholder="paradox/lights/px-light-xxxx" />
           </div>
+        </div>
+
+        <h3>Light</h3>
+        <div class="field-group">
+          <div class="field field-inline">
+            <label for="cfg-fade-time">Default Fade Time (s)</label>
+            <input type="number" id="cfg-fade-time" value="1.0" min="0" max="60" step="0.1" />
+          </div>
+        </div>
+        <div class="btn-row">
+          <button type="button" id="btn-save-fade">Save Fade Time</button>
         </div>
 
         <div class="btn-row">

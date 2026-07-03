@@ -29,6 +29,8 @@ void build_state(const cfg::Config& c, JsonDocument& out) {
     out["b"]          = ls.b;
     out["brightness"] = ls.brightness;
     out["uv"]         = light_ctrl::uv_level();
+    out["fading"]     = light_ctrl::fading();
+    out["default_fade_time_s"] = c.default_fade_time_s;
     if (ls.scene.length())
         out["scene"] = ls.scene;
     else

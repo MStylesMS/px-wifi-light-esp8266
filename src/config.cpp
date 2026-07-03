@@ -41,6 +41,8 @@ void load_defaults(Config& c) {
     c.mqtt_base_topic             = "paradox/lights/px-light-XXXX";
     c.mqtt_announce_topic         = "paradox/props";
     c.mqtt_heartbeat_interval_ms  = 10000;
+
+    c.default_fade_time_s         = 1.0f;
 }
 
 static void substitute_placeholders(Config& c) {
@@ -169,6 +171,8 @@ bool to_json(const Config& c, JsonDocument& out) {
     mqtt["announce_topic"]         = c.mqtt_announce_topic;
     mqtt["heartbeat_interval_ms"]  = c.mqtt_heartbeat_interval_ms;
 
+    out["light"]["default_fade_time_s"] = c.default_fade_time_s;
+
     return true;
 }
 
@@ -203,6 +207,9 @@ bool from_json(Config& c, const JsonDocument& in, String* err_out) {
         c.mqtt_announce_topic = in["mqtt"]["announce_topic"].as<String>();
     if (in["mqtt"]["heartbeat_interval_ms"].is<uint32_t>())
         c.mqtt_heartbeat_interval_ms = in["mqtt"]["heartbeat_interval_ms"].as<uint32_t>();
+
+    if (in["light"]["default_fade_time_s"].is<float>())
+        c.default_fade_time_s = in["light"]["default_fade_time_s"].as<float>();
 
     return true;
 }

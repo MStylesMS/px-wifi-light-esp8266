@@ -51,6 +51,8 @@ curl http://<host>/api/state
   "r": 255, "g": 0, "b": 128,
   "brightness": 100,
   "uv": 0,
+  "fading": false,
+  "default_fade_time_s": 1.0,
   "scene": "magenta",
   "wifi": {
     "sta_connected": true,
@@ -90,6 +92,10 @@ curl -X POST http://<host>/api/light -d '{"command":"on"}'
 curl -X POST http://<host>/api/light \
   -d '{"command":"setColor","color":"#ff8000","brightness":80}'
 
+# Fade to a colour over 2.5 seconds
+curl -X POST http://<host>/api/light \
+  -d '{"command":"setColor","color":"#ff8000","brightness":80,"fadeTime":2.5}'
+
 # Toggle white channel
 curl -X POST http://<host>/api/light -d '{"command":"setWhite","white":true}'
 
@@ -105,7 +111,9 @@ curl -X POST http://<host>/api/light -d '{"command":"off"}'
 
 #### `GET /api/config`
 
-Returns the current persisted configuration.
+Returns the current persisted configuration, including `light.default_fade_time_s`
+(default `1.0`) — the fallback fade duration (seconds) used by `on`/`off`/
+`setBrightness`/`setColor`/`fade` when a command omits `fadeTime`.
 
 #### `POST /api/config`
 
@@ -183,16 +191,41 @@ All commands follow the Paradox envelope `{"command":"<name>", ...params}`.
 
 | Command | Required params | Optional params | Effect |
 |---------|-----------------|-----------------|--------|
-| `on` / `allOn` | — | — | Turn on; default to white if nothing set |
-| `off` / `allOff` | — | — | All channels off |
-| `setColor` | `color` | `brightness` | Set RGB (`"#rrggbb"` or `{r,g,b}`); white off |
+| `on` / `allOn` | — | `brightness` (0–100), `fadeTime` (s) | Turn on; default to white if nothing set |
+| `off` / `allOff` | — | `fadeTime` (s) | All channels off |
+| `setColor` | `color` | `brightness`, `fadeTime` (s) | Set RGB (`"#rrggbb"` or `{r,g,b}`); white off |
 | `setWhite` | `white` (bool) | — | Toggle white channel; `false` + no RGB turns device off |
 | `setUV` | `level` (0–255) | — | Set UV channel level; independent of on/off/brightness |
-| `setBrightness` | `brightness` (0–100) | — | Set PWM scaler |
-| `setColorScene` / `scene` | `scene` (string) | — | Apply named scene |
+| `setBrightness` | `brightness` (0–100) | `fadeTime` (s) | Set PWM scaler |
+| `fade` | — | `brightness`, `color`, `fadeTime` (s) | Ramp brightness and/or colour to a target |
+| `setDefaultFadeTime` | `fadeTime` (s, 0–60) | — | Persist the fallback fade duration used when a command omits `fadeTime` |
+| `setColorScene` / `scene` | `scene` (string) | `fadeTime` (s) | Apply named scene |
 | `getState` / `getStatus` | — | — | Force-publish state |
 | `identify` | — | — | Flash 2 s then restore |
 | `restart` | — | — | Schedule reboot |
+
+#### Fading (`fadeTime`)
+
+`on`, `off`, `setBrightness`, `setColor`, `fade`, and `setColorScene`/`scene` accept an optional `fadeTime` field — duration in **seconds** (float, e.g. `2.5`).
+
+- If `fadeTime` is present (including explicitly `0`), it always wins — `0` means immediate, no fade.
+- If `fadeTime` is **omitted**, the command falls back to the persisted `light.default_fade_time_s` config value (default `1.0`, i.e. a 1 second fade by default).
+
+Use `setDefaultFadeTime` to change that persisted default:
+
+```bash
+curl -X POST http://<host>/api/light -d '{"command":"setDefaultFadeTime","fadeTime":2}'
+```
+
+This is also available over MQTT (`{base_topic}/commands`) and persists to `/config.json` immediately (no reboot required), emitting a `default-fade-time-updated` event.
+
+Fade ramps brightness and RGB at ~30 Hz. The white channel is a digital on/off MOSFET and cannot be dimmed, so it switches instantly at the start of the fade. Sending any new command while a fade is in progress cancels it immediately and starts the new transition from the live in-progress values — it never finishes the original fade first. `off` preserves the pre-fade brightness for the next `on`, same as an immediate `off`.
+
+```bash
+curl -X POST http://<host>/api/light -d '{"command":"fade","brightness":40,"fadeTime":3}'
+curl -X POST http://<host>/api/light -d '{"command":"off","fadeTime":2.5}'
+curl -X POST http://<host>/api/light -d '{"command":"setColor","color":"#00dcff","brightness":100}'  # uses the 1s default
+```
 
 ### 3.3 State payload (`{base_topic}/state`)
 

@@ -138,6 +138,7 @@
     setText('mdns',       wifi.mdns);
     setText('uptime',     fmtUptime(d.uptime_s || 0));
     setText('free-heap',  ((d.free_heap || 0) / 1024).toFixed(1) + ' KB');
+    setText('fade-time',  d.default_fade_time_s != null ? d.default_fade_time_s.toFixed(1) + ' s' : '—');
     s_main_on = !!d.on;
     updateMainBtn();
     s_white = !!d.white;
@@ -231,7 +232,22 @@
       .then(function () { showMsg('Factory reset done. Rebooting…'); })
       .catch(function (e) { showMsg('Error: ' + e, true); });
   });
-
+  $('btn-save-fade').addEventListener('click', function () {
+    var ft = parseFloat($('cfg-fade-time').value);
+    if (isNaN(ft) || ft < 0 || ft > 60) { showCfgMsg('Fade time must be 0–60 s', true); return; }
+    fetch('/api/light', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: 'setDefaultFadeTime', fadeTime: ft })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { showCfgMsg('Save failed: ' + (d.error || '?'), true); return; }
+        showCfgMsg('Default fade time saved.', false);
+        loadState();
+      })
+      .catch(function (e) { showCfgMsg('Error: ' + e, true); });
+  });
   // ---- White toggle ----
   $('btn-white').addEventListener('click', function () {
     sendCommand({ command: 'setWhite', white: !s_white });
@@ -301,6 +317,8 @@
         $('cfg-mqtt-user').value  = mqtt.username  || '';
         $('cfg-mqtt-pass').value  = '';
         $('cfg-base-topic').value = mqtt.base_topic || '';
+        var light = d.light || {};
+        $('cfg-fade-time').value = (light.default_fade_time_s != null ? light.default_fade_time_s : 1.0);
       })
       .catch(function (e) { showCfgMsg('Failed to load: ' + e, true); });
   }
