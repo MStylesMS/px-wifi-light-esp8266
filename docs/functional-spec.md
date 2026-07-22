@@ -109,6 +109,16 @@ Scenes are resolved by `light_ctrl::apply_scene()`. Name matching is case-insens
 
 ## 6. MQTT Behaviour
 
+### Topic roles (Paradox contract)
+
+| Role | Topic | Cadence | Default |
+|------|-------|---------|---------|
+| **Announce** | `mqtt.announce_topic` | Once per MQTT connect/reconnect | `paradox/props` (or `<company>/props` for third-party installs) |
+| **State / heartbeat** | `{base_topic}/state` | Connect, on change, every `heartbeat_interval_ms` (~10s) | Prefer `paradox/<room>/<device>/state` |
+| Commands / events / warnings | `{base_topic}/…` | As needed | Plural `/warnings` |
+
+Announce is for discovery (PxH props panel, catalog). Periodic heartbeats must use `{base_topic}/state`, not the announce topic.
+
 ### Topics
 
 | Topic | Direction | Retained | Description |
@@ -118,6 +128,7 @@ Scenes are resolved by `light_ctrl::apply_scene()`. Name matching is case-insens
 | `{base_topic}/scenes` | OUT | **yes** | Available colour scenes; published once per MQTT connection |
 | `{base_topic}/events` | OUT | no | Command outcomes and device events |
 | `{base_topic}/warnings` | OUT | no | Validation failures, unknown commands |
+| `mqtt.announce_topic` | OUT | no | One-shot online announce (see above) |
 
 ### Scenes publish
 

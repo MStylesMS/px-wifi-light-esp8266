@@ -2,10 +2,20 @@
 
 ESP8266 Wi-Fi light prop firmware for Paradox.
 
-## Conventions
+## MQTT topic contract
 
-- MQTT: `{baseTopic}/{commands|events|state|warnings}`.
-- Announce on connect to `paradox/props`.
+| Topic | When | Default | Notes |
+|-------|------|---------|-------|
+| `{baseTopic}/state` | Connect, on change, every heartbeat (~10s) | under `mqtt.base_topic` | Retained state / heartbeat. Prefer `paradox/<room>/<device>/state`. |
+| `{baseTopic}/commands` | Inbound | `…/commands` | |
+| `{baseTopic}/events` | Outbound | `…/events` | |
+| `{baseTopic}/warnings` | Outbound | `…/warnings` | Plural |
+| Announce (`mqtt.announce_topic`) | **Once** per MQTT connect/reconnect | `paradox/props` | Discovery bus. May be `<company>/props` for third-party installs. |
+
+Do not publish frequent state to the announce topic.
+
+## Other conventions
+
 - Document non-trivial MQTT/config changes before coding when practical.
 - **Prop admin reverse proxy:** HTTP UI honours `X-Forwarded-Prefix` (injects
   `<base href>` into HTML via `src/http_proxy.*`). Static UI uses path-relative

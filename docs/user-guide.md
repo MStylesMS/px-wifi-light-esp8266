@@ -43,8 +43,9 @@ All settings are stored in `/config.json` on the device's internal flash (Little
 | `wifi.ap_password` | `Paradox1` | AP and OTA update password |
 | `mqtt.host` | _(empty)_ | MQTT broker hostname or IP |
 | `mqtt.port` | `1883` | MQTT broker port |
-| `mqtt.base_topic` | `paradox/lights/px-light-XXXX` | Root topic for this device |
-| `mqtt.heartbeat_interval_ms` | `10000` | How often to publish state (ms) |
+| `mqtt.base_topic` | `paradox/lights/px-light-XXXX` | Root topic for this device (prefer `paradox/<room>/<device>`) |
+| `mqtt.announce_topic` | `paradox/props` | One-shot announce on each MQTT connect; may be `<company>/props` |
+| `mqtt.heartbeat_interval_ms` | `10000` | How often to publish `{base_topic}/state` (ms) |
 | `light.default_fade_time_s` | `1.0` | Fallback fade duration (s) used when a light command omits `fadeTime` |
 
 ### 3.2 Changing settings via the Web UI

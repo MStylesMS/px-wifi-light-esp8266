@@ -272,7 +272,10 @@ Each entry:
 
 ### 3.6 Announce
 
-On each MQTT connection the device publishes to `mqtt.announce_topic` (default `paradox/props`):
+On each MQTT connection the device publishes **once** to `mqtt.announce_topic`
+(default `paradox/props`; third-party installs may use `<company>/props`).
+This is the discovery bus — not the periodic heartbeat. Live state continues
+on `{base_topic}/state` (prefer `paradox/<room>/<device>/state`).
 
 ```json
 {
