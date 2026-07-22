@@ -1,5 +1,6 @@
 // web_ui.cpp — minimal web server + JSON status/state/light APIs.
 #include "web_ui.h"
+#include "http_proxy.h"
 #include "log.h"
 #include "wifi_mgr.h"
 #include "ota_mgr.h"
@@ -27,8 +28,31 @@ static bool stream_static(const char* path, const char* mime) {
     return true;
 }
 
+static bool stream_html(const char* path) {
+    http_proxy::Ctx ctx;
+    http_proxy::read(s_server, ctx);
+
+    File f = LittleFS.open(path, "r");
+    if (!f) return false;
+
+    if (!ctx.has_prefix) {
+        s_server.streamFile(f, "text/html");
+        f.close();
+        return true;
+    }
+
+    String html = f.readString();
+    f.close();
+    if (!http_proxy::inject_base_tag(html, ctx)) {
+        s_server.send(500, "text/plain", "HTML rewrite failed");
+        return true;
+    }
+    s_server.send(200, "text/html", html);
+    return true;
+}
+
 static void handle_root() {
-    if (!stream_static("/index.html", "text/html")) {
+    if (!stream_html("/index.html")) {
         s_server.send(500, "text/plain",
                       "index.html missing — run `pio run -t uploadfs`.");
     }

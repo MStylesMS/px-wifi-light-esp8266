@@ -42,7 +42,7 @@
 
   // ---- MQTT info (fetched once from config) ----
   function loadMqttInfo() {
-    fetch('/api/config')
+    fetch('api/config')
       .then(function (r) { return r.json(); })
       .then(function (d) {
         var mqtt = d.mqtt || {};
@@ -72,7 +72,7 @@
 
   // ---- light command ----
   function sendCommand(payload, cb) {
-    fetch('/api/light', {
+    fetch('api/light', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -158,7 +158,7 @@
   }
 
   function loadState() {
-    fetch('/api/state')
+    fetch('api/state')
       .then(function (r) { return r.json(); })
       .then(applyState)
       .catch(function (e) { showMsg('Failed to load state: ' + e, true); });
@@ -221,21 +221,21 @@
 
   $('restart').addEventListener('click', function () {
     if (!confirm('Restart device?')) return;
-    fetch('/api/restart', { method: 'POST' })
+    fetch('api/restart', { method: 'POST' })
       .then(function () { showMsg('Restarting…'); })
       .catch(function (e) { showMsg('Error: ' + e, true); });
   });
 
   $('reset').addEventListener('click', function () {
     if (!confirm('Factory reset — this will erase your config. Continue?')) return;
-    fetch('/api/reset', { method: 'POST' })
+    fetch('api/reset', { method: 'POST' })
       .then(function () { showMsg('Factory reset done. Rebooting…'); })
       .catch(function (e) { showMsg('Error: ' + e, true); });
   });
   $('btn-save-fade').addEventListener('click', function () {
     var ft = parseFloat($('cfg-fade-time').value);
     if (isNaN(ft) || ft < 0 || ft > 60) { showCfgMsg('Fade time must be 0–60 s', true); return; }
-    fetch('/api/light', {
+    fetch('api/light', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ command: 'setDefaultFadeTime', fadeTime: ft })
@@ -302,7 +302,7 @@
   }
 
   function loadCfg() {
-    fetch('/api/config')
+    fetch('api/config')
       .then(function (r) { return r.json(); })
       .then(function (d) {
         var primary = (d.wifi && d.wifi.primary) || {};
@@ -330,7 +330,7 @@
     btn.textContent = 'Scanning…';
     list.innerHTML = '';
     list.classList.add('hidden');
-    fetch('/api/scan')
+    fetch('api/scan')
       .then(function (r) { return r.json(); })
       .then(function (d) {
         btn.disabled = false;
@@ -381,7 +381,7 @@
     if (wp) payload.wifi.primary.password = wp;
     var mp = $('cfg-mqtt-pass').value;
     if (mp) payload.mqtt.password = mp;
-    fetch('/api/config', {
+    fetch('api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
