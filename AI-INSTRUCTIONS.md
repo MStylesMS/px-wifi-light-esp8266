@@ -1,4 +1,4 @@
-﻿# px-wifi-light-esp8266 — AI Instructions
+# px-wifi-light-esp8266 — AI Instructions
 
 ESP8266 Wi-Fi light prop firmware for Paradox.
 
@@ -20,3 +20,7 @@ Do not publish frequent state to the announce topic.
 - **Prop admin reverse proxy:** HTTP UI honours `X-Forwarded-Prefix` (injects
   `<base href>` into HTML via `src/http_proxy.*`). Static UI uses path-relative
   URLs. See PxD `docs/PROP_ADMIN_REVERSE_PROXY.md`.
+
+## Suite standards
+
+Suite-wide contracts live in [../../../apps/PxH/docs/standards/](../../../apps/PxH/docs/standards/) (folder, not a single file). Read those before changing MQTT topics or shared conventions. If you change a standard, update the file under PxH `docs/standards/` first and propagate to other repos' docs in the same work.
