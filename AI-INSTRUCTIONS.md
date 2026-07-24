@@ -17,9 +17,10 @@ Do not publish frequent state to the announce topic.
 ## Other conventions
 
 - Document non-trivial MQTT/config changes before coding when practical.
-- **Prop admin reverse proxy:** HTTP UI honours `X-Forwarded-Prefix` (injects
-  `<base href>` into HTML via `src/http_proxy.*`). Static UI uses path-relative
-  URLs. See PxD `docs/PROP_ADMIN_REVERSE_PROXY.md`.
+- **Prop admin reverse proxy:** HTTP UI honours `X-Forwarded-Prefix` / Host /
+  Proto via `src/http_proxy.*` (injects `<base href>`, `join_path`, `build_url`,
+  `build_ws_url`). Static UI uses path-relative URLs. See PxD
+  `docs/PROP_ADMIN_REVERSE_PROXY.md`.
 
 ## Suite standards
 
