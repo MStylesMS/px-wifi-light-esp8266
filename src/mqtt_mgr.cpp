@@ -22,9 +22,25 @@ static String        s_subscribed_commands;
 static uint32_t s_last_connect_attempt = 0;
 static uint32_t s_last_heartbeat       = 0;
 static bool     s_announced            = false;
+static bool     s_commands_subscribed  = false;
+
+// Deferred inbound message dispatch (PubSubClient is not re-entrant).
+static char     s_pending_payload[MQTT_MAX_PACKET_SIZE];
+static size_t   s_pending_len          = 0;
+static bool     s_pending_message      = false;
+
+static uint32_t s_reconnect_count      = 0;
+static uint32_t s_publish_fail_count   = 0;
+static uint32_t s_last_inbound_cmd_ms  = 0;
 
 static void write_uptime_ts(char* out, size_t n) {
     snprintf(out, n, "uptime+%lus", (unsigned long)(millis() / 1000UL));
+}
+
+static void update_mqtt_state(bool connected) {
+    appstate::set_mqtt_connected(connected);
+    appstate::set_mqtt_subscribed(connected && s_commands_subscribed);
+    appstate::set_mqtt_stats(s_reconnect_count, s_publish_fail_count, s_last_inbound_cmd_ms);
 }
 
 static bool publish_json(const char* topic, const JsonDocument& doc, bool retain = false) {
@@ -38,12 +54,51 @@ static bool publish_json(const char* topic, const JsonDocument& doc, bool retain
     char body[MQTT_MAX_PACKET_SIZE];
     size_t written = serializeJson(doc, body, sizeof(body));
     bool ok = s_client.publish(topic, (const uint8_t*)body, written, retain);
-    if (!ok) pxlog::warn(TAG, "publish failed: %s (%u bytes)", topic, (unsigned)written);
+    if (!ok) {
+        ++s_publish_fail_count;
+        pxlog::warn(TAG, "publish failed: %s (%u bytes)", topic, (unsigned)written);
+    }
+    update_mqtt_state(true);
     return ok;
 }
 
-static void on_msg(char* topic, uint8_t* payload, unsigned int len) {
-    if (s_cb) s_cb(topic, payload, (size_t)len, s_user);
+static void on_msg(char* /*topic*/, uint8_t* payload, unsigned int len) {
+    if ((size_t)len >= sizeof(s_pending_payload)) {
+        pxlog::warn(TAG, "incoming MQTT payload too large (%u bytes)", (unsigned)len);
+        return;
+    }
+    if (s_pending_message) {
+        pxlog::warn(TAG, "incoming MQTT message dropped while dispatch pending");
+        return;
+    }
+    s_pending_len = (size_t)len;
+    if (s_pending_len) memcpy(s_pending_payload, payload, s_pending_len);
+    s_pending_message = true;
+}
+
+static void dispatch_pending_message() {
+    if (!s_pending_message) return;
+    s_pending_message = false;
+    s_last_inbound_cmd_ms = millis();
+    update_mqtt_state(true);
+    if (s_cb) s_cb("", (const uint8_t*)s_pending_payload, s_pending_len, s_user);
+}
+
+static bool ensure_subscribed() {
+    if (!s_client.connected() || !s_cfg) return false;
+    if (s_commands_subscribed) return true;
+
+    s_subscribed_commands = s_cfg->mqtt_base_topic + "/commands";
+    if (s_client.subscribe(s_subscribed_commands.c_str(), 1)) {
+        pxlog::info(TAG, "sub %s", s_subscribed_commands.c_str());
+        s_commands_subscribed = true;
+        update_mqtt_state(true);
+        return true;
+    }
+
+    pxlog::warn(TAG, "sub FAILED %s", s_subscribed_commands.c_str());
+    update_mqtt_state(true);
+    return false;
 }
 
 void begin(cfg::Config* c, MessageCb cb, void* user) {
@@ -51,6 +106,7 @@ void begin(cfg::Config* c, MessageCb cb, void* user) {
     s_client.setBufferSize(MQTT_MAX_PACKET_SIZE);
     s_client.setKeepAlive(MQTT_KEEPALIVE);
     s_client.setCallback(on_msg);
+    update_mqtt_state(false);
 }
 
 bool connected() { return s_client.connected(); }
@@ -163,21 +219,18 @@ static bool try_connect() {
     if (!ok) {
         pxlog::warn(TAG, "connect to %s:%u failed rc=%d",
                     s_cfg->mqtt_host.c_str(), (unsigned)s_cfg->mqtt_port, s_client.state());
+        update_mqtt_state(false);
         return false;
     }
 
     pxlog::info(TAG, "connected to %s:%u as %s",
                 s_cfg->mqtt_host.c_str(), (unsigned)s_cfg->mqtt_port, client_id.c_str());
 
-    // Subscribe to commands.
-    s_subscribed_commands = s_cfg->mqtt_base_topic + "/commands";
-    if (s_client.subscribe(s_subscribed_commands.c_str(), 1)) {
-        pxlog::info(TAG, "sub %s", s_subscribed_commands.c_str());
-    } else {
-        pxlog::warn(TAG, "sub FAILED %s", s_subscribed_commands.c_str());
-    }
-
-    s_announced = false;
+    s_commands_subscribed = false;
+    s_announced           = false;
+    ++s_reconnect_count;
+    update_mqtt_state(true);
+    ensure_subscribed();
     return true;
 }
 
@@ -187,6 +240,7 @@ void loop() {
     uint32_t now = millis();
 
     if (!s_client.connected()) {
+        update_mqtt_state(false);
         // Retry with 5-second back-off.
         if (now - s_last_connect_attempt >= 5000UL) {
             s_last_connect_attempt = now;
@@ -196,6 +250,8 @@ void loop() {
     }
 
     s_client.loop();
+    dispatch_pending_message();
+    ensure_subscribed();
 
     // Announce once per connection.
     if (!s_announced) {
@@ -205,10 +261,11 @@ void loop() {
         publish_state();
     }
 
-    // Periodic heartbeat.
+    // Periodic heartbeat — only advance timer after a successful publish.
     if (now - s_last_heartbeat >= s_cfg->mqtt_heartbeat_interval_ms) {
-        s_last_heartbeat = now;
-        publish_state();
+        if (publish_state()) {
+            s_last_heartbeat = now;
+        }
     }
 }
 

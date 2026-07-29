@@ -5,8 +5,28 @@
 
 namespace appstate {
 
+static uint32_t s_min_free_heap_bytes   = UINT32_MAX;
+static bool     s_mqtt_connected        = false;
+static bool     s_mqtt_subscribed       = false;
+static uint32_t s_mqtt_reconnect_count  = 0;
+static uint32_t s_mqtt_publish_fail_count = 0;
+static uint32_t s_mqtt_last_inbound_cmd_ms = 0;
+
 static void write_uptime_ts(char* out, size_t n) {
     snprintf(out, n, "uptime+%lus", (unsigned long)(millis() / 1000UL));
+}
+
+void reset_heap_watermark() { s_min_free_heap_bytes = UINT32_MAX; }
+
+void set_mqtt_connected(bool v) { s_mqtt_connected = v; }
+
+void set_mqtt_subscribed(bool v) { s_mqtt_subscribed = v; }
+
+void set_mqtt_stats(uint32_t reconnect_count, uint32_t publish_fail_count,
+                    uint32_t last_inbound_cmd_ms) {
+    s_mqtt_reconnect_count      = reconnect_count;
+    s_mqtt_publish_fail_count   = publish_fail_count;
+    s_mqtt_last_inbound_cmd_ms  = last_inbound_cmd_ms;
 }
 
 void build_state(const cfg::Config& c, JsonDocument& out) {
@@ -18,7 +38,24 @@ void build_state(const cfg::Config& c, JsonDocument& out) {
     out["fw_version"]  = FW_VERSION;
     out["instance"]    = c.prop_name;
     out["uptime_s"]    = (unsigned long)(millis() / 1000UL);
-    out["free_heap"]   = (unsigned)ESP.getFreeHeap();
+
+    uint32_t free_heap_bytes = ESP.getFreeHeap();
+    if (s_min_free_heap_bytes == UINT32_MAX || free_heap_bytes < s_min_free_heap_bytes) {
+        s_min_free_heap_bytes = free_heap_bytes;
+    }
+    out["free_heap"] = free_heap_bytes;
+
+    JsonObject health = out["health"].to<JsonObject>();
+    health["free_heap_bytes"]     = free_heap_bytes;
+    health["min_free_heap_bytes"] = s_min_free_heap_bytes;
+    health["max_block_bytes"]     = (unsigned)ESP.getMaxFreeBlockSize();
+
+    JsonObject mqtt = out["mqtt"].to<JsonObject>();
+    mqtt["connected"]           = s_mqtt_connected;
+    mqtt["subscribed_commands"] = s_mqtt_subscribed;
+    mqtt["reconnect_count"]     = s_mqtt_reconnect_count;
+    mqtt["publish_fail_count"]  = s_mqtt_publish_fail_count;
+    mqtt["last_inbound_cmd_ms"] = s_mqtt_last_inbound_cmd_ms;
 
     // Light state
     const light_ctrl::State& ls = light_ctrl::state();

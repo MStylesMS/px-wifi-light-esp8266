@@ -1,0 +1,9 @@
+{
+  "name": "px-wifi-light-mqtt-state-logger",
+  "private": true,
+  "type": "module",
+  "description": "Read-only MQTT state logger for px-wifi-light-esp8266 diagnostics",
+  "dependencies": {
+    "mqtt": "^5.10.0"
+  }
+}

@@ -42,10 +42,22 @@ curl http://<host>/api/state
 {
   "timestamp": "uptime+1234s",
   "application": "px-wifi-light-esp8266",
-  "fw_version": "0.1.0",
+  "fw_version": "0.4.1",
   "instance": "px-light-AABB",
   "uptime_s": 1234,
   "free_heap": 38192,
+  "health": {
+    "free_heap_bytes": 38192,
+    "min_free_heap_bytes": 35000,
+    "max_block_bytes": 16384
+  },
+  "mqtt": {
+    "connected": true,
+    "subscribed_commands": true,
+    "reconnect_count": 0,
+    "publish_fail_count": 0,
+    "last_inbound_cmd_ms": 120000
+  },
   "on": true,
   "white": false,
   "r": 255, "g": 0, "b": 128,
@@ -67,6 +79,11 @@ curl http://<host>/api/state
   }
 }
 ```
+
+`free_heap` is retained for backward compatibility; prefer `health.free_heap_bytes`.
+`health.min_free_heap_bytes` is the lowest free heap seen since boot.
+`health.max_block_bytes` helps detect heap fragmentation.
+`mqtt.last_inbound_cmd_ms` is device uptime (ms) when a command was last received.
 
 ### 2.3 Light control
 
