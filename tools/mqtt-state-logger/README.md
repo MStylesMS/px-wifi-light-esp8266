@@ -15,6 +15,20 @@ nohup /path/to/run.sh \
 
 Stop with `kill <pid>` or reboot the host.
 
+## Analyze logs after a failure
+
+```bash
+node analyze.mjs --log-dir /opt/paradox/logs/lights-monitor
+```
+
+## OTA deploy (after customer sessions)
+
+Firmware is staged at `/opt/paradox/tools/px-wifi-light-firmware-v0.4.1.bin` on Agent 22.
+
+```bash
+/opt/paradox/tools/deploy-agent22-ota.sh /opt/paradox/tools/px-wifi-light-firmware-v0.4.1.bin
+```
+
 ## Local test
 
 ```bash
