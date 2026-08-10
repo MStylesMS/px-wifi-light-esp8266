@@ -5,15 +5,25 @@ Read-only diagnostic logger for `px-wifi-light-esp8266`. Subscribes to `{base}/s
 ## Agent 22 (manual start)
 
 ```bash
-mkdir -p /opt/paradox/logs/lights-monitor
-nohup /path/to/run.sh \
-  --broker mqtt://127.0.0.1 \
-  --state-topic paradox/agent22/lights/state \
-  --log-dir /opt/paradox/logs/lights-monitor \
-  >> /opt/paradox/logs/lights-monitor/runner.log 2>&1 &
+# Over SSH — use start-detached.sh or ssh -f so the process survives disconnect:
+/opt/paradox/tools/mqtt-state-logger/start-detached.sh
+
+# Or from your workstation:
+ssh -f paradox@agent22.story-geological.ts.net \
+  '/opt/paradox/tools/mqtt-state-logger/start-detached.sh'
 ```
 
-Stop with `kill <pid>` or reboot the host.
+Stop:
+
+```bash
+/opt/paradox/tools/mqtt-state-logger/stop.sh
+```
+
+PID file: `/opt/paradox/logs/lights-monitor/logger.pid`
+
+Logs: `/opt/paradox/logs/lights-monitor/lights-*.jsonl`
+
+The process runs under init (PPID 1) after start — safe to close SSH.
 
 ## Analyze logs after a failure
 
