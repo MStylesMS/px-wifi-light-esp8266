@@ -46,28 +46,31 @@
       </div>
 
       <div class="btn-row">
-        <button type="button" id="btn-main">Main: —</button>
         <button type="button" id="btn-white">White: —</button>
+        <button type="button" id="btn-rgb">RGB: —</button>
         <button type="button" id="btn-uv">UV: OFF</button>
         <button type="button" id="btn-identify">Identify</button>
       </div>
 
       <h3>Scenes</h3>
       <div class="scene-grid" id="scene-grid">
-        <button data-scene="white">White</button>
-        <button data-scene="brightWhite">Bright White</button>
-        <button data-scene="warmWhite">Warm</button>
-        <button data-scene="softWhite">Soft</button>
-        <button data-scene="dim">Dim</button>
-        <button data-scene="nightLight" style="--sc:#600840">Night Light</button>
-        <button data-scene="red" style="--sc:#f00">Red</button>
-        <button data-scene="green" style="--sc:#0f0">Green</button>
-        <button data-scene="blue" style="--sc:#00f">Blue</button>
-        <button data-scene="yellow" style="--sc:#ff0">Yellow</button>
-        <button data-scene="orange" style="--sc:#f80">Orange</button>
-        <button data-scene="cyan" style="--sc:#0ff">Cyan</button>
-        <button data-scene="magenta" style="--sc:#f0f">Magenta</button>
-        <button data-scene="purple" style="--sc:#80f">Purple</button>
+        <button data-scene="white" class="sc-light" style="--sc:#F4F4F4">White</button>
+        <button data-scene="brightWhite" class="sc-light" style="--sc:#FFFFFF">Bright White</button>
+        <button data-scene="softWhite" class="sc-light" style="--sc:#FFE8E0">Soft White</button>
+        <button data-scene="moonlight" class="sc-light" style="--sc:#B0B0C8">Moonlight</button>
+        <button data-scene="coolWhite" class="sc-light" style="--sc:#A0C8FF">Cool White</button>
+        <button data-scene="nightLight" class="sc-dark" style="--sc:#FF8000">Night Light</button>
+        <button data-scene="red" class="sc-dark" style="--sc:#FF0000">Red</button>
+        <button data-scene="orange" class="sc-dark" style="--sc:#FF6E00">Orange</button>
+        <button data-scene="yellow" class="sc-light" style="--sc:#FFDC00">Yellow</button>
+        <button data-scene="green" class="sc-light" style="--sc:#00FF5A">Green</button>
+        <button data-scene="cyan" class="sc-light" style="--sc:#00DCFF">Cyan</button>
+        <button data-scene="blue" class="sc-dark" style="--sc:#0046FF">Blue</button>
+        <button data-scene="magenta" class="sc-dark" style="--sc:#FF00C8">Magenta</button>
+        <button data-scene="purple" class="sc-dark" style="--sc:#AA3CFF">Purple</button>
+        <button data-scene="pink" class="sc-dark" style="--sc:#FF4080">Pink</button>
+        <button data-scene="uv" class="scene-uv">UV</button>
+        <button data-scene="off" class="scene-off">Off</button>
       </div>
 
       <h3>RGB</h3>

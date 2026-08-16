@@ -123,19 +123,23 @@ bool publish_scenes() {
     if (!s_cfg || !s_client.connected()) return false;
     struct UiScene { const char* id; const char* label; const char* swatch; };
     static const UiScene k_ui_scenes[] = {
-        { "white",     "White",       "#F4F4F4" },
-        { "warmWhite", "Warm White",  "#FFE4B0" },
-        { "softWhite", "Soft White",  "#FFF0C0" },
-        { "dim",       "Night Light", "#FF8C00" },
-        { "red",       "Red",         "#FF0000" },
-        { "orange",    "Orange",      "#FF6E00" },
-        { "yellow",    "Yellow",      "#FFDC00" },
-        { "green",     "Green",       "#00FF5A" },
-        { "cyan",      "Cyan",        "#00DCFF" },
-        { "blue",      "Blue",        "#0046FF" },
-        { "magenta",   "Magenta",     "#FF00C8" },
-        { "purple",    "Purple",      "#AA3CFF" },
-        { "off",       "Off",         "#000000" },
+        { "white",       "White",        "#F4F4F4" },
+        { "brightWhite", "Bright White", "#FFFFFF" },
+        { "softWhite",   "Soft White",   "#FFE8E0" },
+        { "moonlight",   "Moonlight",    "#B0B0C8" },
+        { "coolWhite",   "Cool White",   "#A0C8FF" },
+        { "nightLight",  "Night Light",  "#FF8000" },
+        { "red",         "Red",          "#FF0000" },
+        { "orange",      "Orange",       "#FF6E00" },
+        { "yellow",      "Yellow",       "#FFDC00" },
+        { "green",       "Green",        "#00FF5A" },
+        { "cyan",        "Cyan",         "#00DCFF" },
+        { "blue",        "Blue",         "#0046FF" },
+        { "magenta",     "Magenta",      "#FF00C8" },
+        { "purple",      "Purple",       "#AA3CFF" },
+        { "pink",        "Pink",         "#FF4080" },
+        { "uv",          "UV",           "#2A0038" },
+        { "off",         "Off",          "#000000" },
     };
     JsonDocument doc;
     JsonArray arr = doc["scenes"].to<JsonArray>();

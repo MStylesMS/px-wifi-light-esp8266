@@ -34,7 +34,7 @@ The LoLin V3 is physically wider (30 pins including extra GND/3V3/VIN power rail
 
 All outputs are **active-HIGH**, 3.3 V logic.  A transistor or MOSFET driver stage is required between the ESP8266 GPIO and any LED load.
 
-The UV channel (D2/GPIO4) is **fully independent** — it is not gated by the master on/off state and must be controlled explicitly via the `setUV` command.
+The UV channel (D2/GPIO4) is software PWM 0–255 and is **not** scaled by `brightness`. Firmware 0.5.0+ fades UV with RGB, zeros it on `off`/`allOff` and non-`uv` scenes, and restores the preserved UV on `on`/`allOn`. Direct control remains available via `setUV`.
 
 > **Wiring lost.** The original wiring diagram was not preserved. Verify actual driver polarity before power-on.
 

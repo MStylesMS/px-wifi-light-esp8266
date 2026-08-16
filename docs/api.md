@@ -42,7 +42,7 @@ curl http://<host>/api/state
 {
   "timestamp": "uptime+1234s",
   "application": "px-wifi-light-esp8266",
-  "fw_version": "0.4.1",
+  "fw_version": "0.5.1",
   "instance": "px-light-AABB",
   "uptime_s": 1234,
   "free_heap": 38192,
@@ -118,7 +118,7 @@ curl -X POST http://<host>/api/light -d '{"command":"setWhite","white":true}'
 
 # Named scene
 curl -X POST http://<host>/api/light \
-  -d '{"command":"setColorScene","scene":"warmWhite"}'
+  -d '{"command":"setColorScene","scene":"softWhite"}'
 
 # Turn off
 curl -X POST http://<host>/api/light -d '{"command":"off"}'
@@ -208,15 +208,15 @@ All commands follow the Paradox envelope `{"command":"<name>", ...params}`.
 
 | Command | Required params | Optional params | Effect |
 |---------|-----------------|-----------------|--------|
-| `on` / `allOn` | — | `brightness` (0–100), `fadeTime` (s) | Turn on; default to white if nothing set |
-| `off` / `allOff` | — | `fadeTime` (s) | All channels off |
-| `setColor` | `color` | `brightness`, `fadeTime` (s) | Set RGB (`"#rrggbb"` or `{r,g,b}`); white off |
-| `setWhite` | `white` (bool) | — | Toggle white channel; `false` + no RGB turns device off |
-| `setUV` | `level` (0–255) | — | Set UV channel level; independent of on/off/brightness |
-| `setBrightness` | `brightness` (0–100) | `fadeTime` (s) | Set PWM scaler |
-| `fade` | — | `brightness`, `color`, `fadeTime` (s) | Ramp brightness and/or colour to a target |
+| `on` / `allOn` | — | `brightness` (0–100), `fadeTime` (s) | Turn on; restore UV from last off; default white if nothing set |
+| `off` / `allOff` | — | `fadeTime` (s) | Zero white, RGB outputs, and UV; preserve for next on; `scene=off` |
+| `setColor` | `color` | `brightness`, `fadeTime` (s), `white` | Set RGB (`"#rrggbb"` or `{r,g,b}`); default white off; optional `white` preserves MOSFET; UV unchanged |
+| `setWhite` | `white` (bool) | — | Toggle white channel |
+| `setUV` | `level` (0–255) | `fadeTime` (s) | Set UV PWM 0–255 (not scaled by brightness) |
+| `setBrightness` | `brightness` (0–100) | `fadeTime` (s) | Set RGB PWM scaler |
+| `fade` | — | `brightness`, `color`, `level` (UV), `fadeTime` (s) | Ramp brightness/colour/UV to a target |
 | `setDefaultFadeTime` | `fadeTime` (s, 0–60) | — | Persist the fallback fade duration used when a command omits `fadeTime` |
-| `setColorScene` / `scene` | `scene` (string) | `fadeTime` (s) | Apply named scene |
+| `setColorScene` / `scene` | `scene` (string) | `fadeTime` (s) | Apply named scene; non-`uv` scenes force UV=0 |
 | `getState` / `getStatus` | — | — | Force-publish state |
 | `identify` | — | — | Flash 2 s then restore |
 | `restart` | — | — | Schedule reboot |
@@ -236,7 +236,7 @@ curl -X POST http://<host>/api/light -d '{"command":"setDefaultFadeTime","fadeTi
 
 This is also available over MQTT (`{base_topic}/commands`) and persists to `/config.json` immediately (no reboot required), emitting a `default-fade-time-updated` event.
 
-Fade ramps brightness and RGB at ~30 Hz. The white channel is a digital on/off MOSFET and cannot be dimmed, so it switches instantly at the start of the fade. Sending any new command while a fade is in progress cancels it immediately and starts the new transition from the live in-progress values — it never finishes the original fade first. `off` preserves the pre-fade brightness for the next `on`, same as an immediate `off`.
+Fade ramps brightness, RGB, and UV at ~30 Hz. The white channel is a digital on/off MOSFET and cannot be dimmed, so it switches instantly at the start of the fade. Sending any new command while a fade is in progress cancels it immediately and starts the new transition from the live in-progress values — it never finishes the original fade first. `off`/`allOff` zero UV as well as white/RGB outputs, and preserve prior channel values (including UV) for the next `on`/`allOn`. Successful light commands publish an event on `{base_topic}/events` with `type: "light"`.
 
 ```bash
 curl -X POST http://<host>/api/light -d '{"command":"fade","brightness":40,"fadeTime":3}'
@@ -262,19 +262,23 @@ Published with **retain=true** immediately after each MQTT connection. A newly c
 ```json
 {
   "scenes": [
-    { "id": "white",     "label": "White",       "swatch": "#F4F4F4" },
-    { "id": "warmWhite", "label": "Warm White",  "swatch": "#FFE4B0" },
-    { "id": "softWhite", "label": "Soft White",  "swatch": "#FFF0C0" },
-    { "id": "dim",       "label": "Night Light", "swatch": "#FF8C00" },
-    { "id": "red",       "label": "Red",         "swatch": "#FF0000" },
-    { "id": "orange",    "label": "Orange",      "swatch": "#FF6E00" },
-    { "id": "yellow",    "label": "Yellow",      "swatch": "#FFDC00" },
-    { "id": "green",     "label": "Green",       "swatch": "#00FF5A" },
-    { "id": "cyan",      "label": "Cyan",        "swatch": "#00DCFF" },
-    { "id": "blue",      "label": "Blue",        "swatch": "#0046FF" },
-    { "id": "magenta",   "label": "Magenta",     "swatch": "#FF00C8" },
-    { "id": "purple",    "label": "Purple",      "swatch": "#AA3CFF" },
-    { "id": "off",       "label": "Off",         "swatch": "#000000" }
+    { "id": "white",       "label": "White",        "swatch": "#F4F4F4" },
+    { "id": "brightWhite", "label": "Bright White", "swatch": "#FFFFFF" },
+    { "id": "softWhite",   "label": "Soft White",   "swatch": "#FFE8E0" },
+    { "id": "moonlight",   "label": "Moonlight",    "swatch": "#B0B0C8" },
+    { "id": "coolWhite",   "label": "Cool White",   "swatch": "#A0C8FF" },
+    { "id": "nightLight",  "label": "Night Light",  "swatch": "#FF8000" },
+    { "id": "red",         "label": "Red",          "swatch": "#FF0000" },
+    { "id": "orange",      "label": "Orange",       "swatch": "#FF6E00" },
+    { "id": "yellow",      "label": "Yellow",       "swatch": "#FFDC00" },
+    { "id": "green",       "label": "Green",        "swatch": "#00FF5A" },
+    { "id": "cyan",        "label": "Cyan",         "swatch": "#00DCFF" },
+    { "id": "blue",        "label": "Blue",         "swatch": "#0046FF" },
+    { "id": "magenta",     "label": "Magenta",      "swatch": "#FF00C8" },
+    { "id": "purple",      "label": "Purple",       "swatch": "#AA3CFF" },
+    { "id": "pink",        "label": "Pink",         "swatch": "#FF4080" },
+    { "id": "uv",          "label": "UV",           "swatch": "#2A0038" },
+    { "id": "off",         "label": "Off",          "swatch": "#000000" }
   ]
 }
 ```
@@ -298,7 +302,7 @@ on `{base_topic}/state` (prefer `paradox/<room>/<device>/state`).
 {
   "timestamp": "uptime+Ns",
   "application": "px-wifi-light-esp8266",
-  "fw_version": "0.1.0",
+  "fw_version": "0.5.1",
   "instance": "px-light-AABB",
   "base_topic": "paradox/lights/px-light-aabb",
   "ip": "192.168.1.42",

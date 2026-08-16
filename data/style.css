@@ -130,14 +130,36 @@ h3 {
   padding: 0.35rem 0.4rem;
   font-size: 0.8rem;
   border: 1px solid #444;
-  background: #1e1e1e;
+  background: var(--sc, #1e1e1e);
   color: #eee;
   border-radius: 4px;
   cursor: pointer;
+  font-weight: 600;
 }
 
-.scene-grid button:hover { background: #2a2a2a; }
-.scene-grid button[data-scene="off"] { color: #666; }
+.scene-grid button:hover { filter: brightness(1.08); }
+.scene-grid button.sc-light { color: #111; border-color: rgba(0,0,0,0.2); }
+.scene-grid button.sc-dark  { color: #fff; border-color: rgba(255,255,255,0.25); }
+/* Off: black bg, white text */
+.scene-grid button.scene-off,
+.scene-grid button[data-scene="off"] {
+  background: #000;
+  color: #fff;
+  border-color: #444;
+}
+/* UV scene: dark plum background, neon yellow text */
+.scene-grid button.scene-uv,
+.scene-grid button[data-scene="uv"] {
+  background: #2a0038;
+  color: #dfff00;
+  border-color: #5a2a70;
+  font-weight: 700;
+}
+.scene-grid button.scene-uv:hover,
+.scene-grid button[data-scene="uv"]:hover {
+  background: #3d0052;
+  color: #ffff33;
+}
 
 /* Sliders */
 .slider-group {

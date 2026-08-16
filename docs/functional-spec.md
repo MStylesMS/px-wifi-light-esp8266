@@ -1,7 +1,7 @@
 # px-wifi-light-esp8266 — Functional Specification
 
 **Status:** Draft
-**Version:** 0.1.0
+**Version:** 0.5.2
 
 This document specifies **what the device does**. Update this document before changing behaviour.
 
@@ -24,7 +24,7 @@ The device is **permanently powered**. "Off" means all channels at zero; the net
 ```
               ┌─────────────┐
   D1 GPIO5  ──┤ White (dig) ├──► white LED driver (on/off)
-  D2 GPIO4  ──┤ UV    (PWM) ├──► UV    LED driver (0–255) [independent]
+  D2 GPIO4  ──┤ UV    (PWM) ├──► UV    LED driver (0–255) [faded; off/scenes]
   D5 GPIO14 ──┤ Green (PWM) ├──► green LED driver (0–255)
   D6 GPIO12 ──┤ Red   (PWM) ├──► red   LED driver (0–255)
   D7 GPIO13 ──┤ Blue  (PWM) ├──► blue  LED driver (0–255)
@@ -35,7 +35,7 @@ All five channels are **active-HIGH** (HIGH = on). PWM channels use ESP8266 soft
 
 The white channel is digital (full-on or full-off) and is **not** affected by the brightness scaler.
 
-The UV channel is **fully independent**: it is not gated by the master `on` flag, not affected by `brightness`, and not modified by scenes. It must be controlled explicitly via `setUV`.
+The UV channel is software PWM (0-255), **not** scaled by `brightness`. It joins the ~30 Hz fade engine with RGB. `off` / `allOff` zero UV (previous UV is preserved for the next `on` / `allOn`). Every named scene forces UV=0 except the `uv` scene (UV=255). Direct control remains available via `setUV`.
 
 ---
 
@@ -45,12 +45,12 @@ The canonical light state has six fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `on` | bool | Master output enable. `false` forces white and RGB channels to zero. Does **not** affect UV. |
+| `on` | bool | Master output enable for white+RGB. `false` forces white and RGB outputs to zero. |
 | `white` | bool | White channel (D1). Ignored when `on=false`. |
 | `r`, `g`, `b` | uint8 0–255 | RGB channel targets. Scaled by `brightness` at output. |
 | `brightness` | uint8 0–100 | Global PWM scaler (%). Does not affect white or UV channels. |
-| `uv` | uint8 0–255 | UV channel level (D4). Fully independent — not affected by `on`, `brightness`, or scenes. |
-| `scene` | string | Last named scene applied, or `""`. UV is never modified by scene changes. |
+| `uv` | uint8 0–255 | UV PWM level. Zeroed by `off`/`allOff` and by every scene except `uv`. Not scaled by brightness. |
+| `scene` | string | Last named scene applied, or `""`. After all-off, `"off"`. |
 
 All state transitions take effect immediately and are reflected in the next MQTT state publish.
 
@@ -68,13 +68,13 @@ All commands follow the Paradox command envelope:
 
 | Command | Params | Effect |
 |---------|--------|--------|
-| `on` / `allOn` | — | Set `on=true`. If no channels were set, defaults to white on. |
-| `off` / `allOff` | — | Set `on=false`. Channel targets are preserved for next `on`. |
-| `setColor` | `color: "#rrggbb"` or `{r,g,b}`, optional `brightness` | Set RGB, turn white off, set `on=true`. |
-| `setWhite` | `white: true\|false` | Turn white channel on or off. `false` + no RGB active turns `on=false`. |
-| `setBrightness` | `brightness: 0–100` | Set brightness scaler. Sets `on=true` if currently off. |
-| `setUV` | `level: 0–255` | Set UV channel level. Independent of on/off and brightness. |
-| `setColorScene` / `scene` | `scene: "<name>"` | Apply a named scene (see §5). |
+| `on` / `allOn` | optional `brightness`, `fadeTime` | Turn on; restore preserved UV from last off; default white on if nothing set. |
+| `off` / `allOff` | optional `fadeTime` | Zero white, RGB outputs, and UV; preserve values for next on; `scene=off`. |
+| `setColor` | `color: "#rrggbb"` or `{r,g,b}`, optional `brightness`, `fadeTime`, `white` | Set RGB; default white off; optional `white` preserves MOSFET; UV unchanged. |
+| `setWhite` | `white: true\|false` | Turn white channel on or off. |
+| `setBrightness` | `brightness: 0–100`, optional `fadeTime` | Set brightness scaler. |
+| `setUV` | `level: 0–255`, optional `fadeTime` | Set UV PWM 0–255 (not scaled by brightness). |
+| `setColorScene` / `scene` | `scene: "<name>"`, optional `fadeTime` | Apply named scene (see §5). Non-`uv` scenes force UV=0. |
 | `getState` / `getStatus` | — | Re-publish retained state immediately. |
 | `identify` | — | Flash all channels full-white for 2 s, then restore prior state. |
 | `restart` | — | Schedule a firmware reboot (~500 ms). |
@@ -86,24 +86,29 @@ Unknown commands produce a `LIGHT_CMD_UNKNOWN` warning on the `/warnings` topic.
 ## 5. Named Scenes
 
 Scenes are resolved by `light_ctrl::apply_scene()`. Name matching is case-insensitive.
+Every scene sets **UV=0** except `uv` (UV=255).
+Removed: `normal`, `warmWhite`, `dim` (renamed `moonlight`), `reading`, `relax`, `party`, `romantic`, `sunrise`, `sunset`.
 
-| Scene name | White | R | G | B | Brightness |
-|------------|:-----:|---|---|---|:----------:|
-| `off` | off | 0 | 0 | 0 | 100 |
-| `white` / `normal` / `brightWhite` | on | 0 | 0 | 0 | 100 |
-| `softWhite` | off | 255 | 223 | 223 | 50 |
-| `warmWhite` | on | 32 | 8 | 0 | 100 |
-| `dim` | off | 255 | 255 | 255 | 30 |
-| `coolWhite` | off | 80 | 80 | 255 | 100 |
-| `red` | off | 255 | 0 | 0 | 100 |
-| `green` | off | 0 | 255 | 0 | 100 |
-| `blue` | off | 0 | 0 | 255 | 100 |
-| `yellow` | off | 255 | 255 | 0 | 100 |
-| `orange` | off | 255 | 128 | 0 | 100 |
-| `cyan` | off | 0 | 255 | 255 | 100 |
-| `magenta` | off | 255 | 0 | 255 | 100 |
-| `purple` | off | 128 | 0 | 255 | 100 |
-| `pink` | off | 255 | 64 | 128 | 100 |
+| Scene name | White | R | G | B | Brightness | UV |
+|------------|:-----:|---|---|---|:----------:|---:|
+| `white` | on | 0 | 0 | 0 | 100 | 0 |
+| `brightWhite` | on | 255 | 255 | 255 | 100 | 0 |
+| `softWhite` | on | 255 | 0 | 0 | 100 | 0 |
+| `moonlight` | off | 255 | 255 | 255 | 30 | 0 |
+| `coolWhite` | on | 0 | 0 | 255 | 100 | 0 |
+| `nightLight` | off | 255 | 128 | 0 | 8 | 0 |
+| `red` | off | 255 | 0 | 0 | 100 | 0 |
+| `green` | off | 0 | 255 | 0 | 100 | 0 |
+| `blue` | off | 0 | 0 | 255 | 100 | 0 |
+| `yellow` | off | 255 | 255 | 0 | 100 | 0 |
+| `orange` | off | 255 | 128 | 0 | 100 | 0 |
+| `purple` | off | 128 | 0 | 255 | 100 | 0 |
+| `pink` | off | 255 | 64 | 128 | 100 | 0 |
+| `cyan` | off | 0 | 255 | 255 | 100 | 0 |
+| `magenta` | off | 255 | 0 | 255 | 100 | 0 |
+| `uv` | off | 0 | 0 | 0 | 100 | 255 |
+| `off` | off | 0 | 0 | 0 | 100 | 0 |
+
 
 ---
 

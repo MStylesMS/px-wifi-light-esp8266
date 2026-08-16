@@ -13,14 +13,12 @@
     if (b) b.textContent = 'White: ' + (s_white ? 'ON' : 'OFF');
   }
 
-  // ---- main on/off state ----
-  var s_main_on = false;
-  function updateMainBtn() {
-    var b = $('btn-main');
-    if (b) {
-      b.textContent = 'Main: ' + (s_main_on ? 'ON' : 'OFF');
-      b.className = s_main_on ? '' : 'warn';
-    }
+  // ---- RGB channel state (any non-zero RGB while master on) ----
+  var s_rgb_on = false;
+  var s_rgb_last = { r: 255, g: 255, b: 255, brightness: 100 };
+  function updateRgbBtn() {
+    var b = $('btn-rgb');
+    if (b) b.textContent = 'RGB: ' + (s_rgb_on ? 'ON' : 'OFF');
   }
 
   // ---- UV channel state ----
@@ -139,10 +137,20 @@
     setText('uptime',     fmtUptime(d.uptime_s || 0));
     setText('free-heap',  ((d.free_heap || 0) / 1024).toFixed(1) + ' KB');
     setText('fade-time',  d.default_fade_time_s != null ? d.default_fade_time_s.toFixed(1) + ' s' : '—');
-    s_main_on = !!d.on;
-    updateMainBtn();
     s_white = !!d.white;
     updateWhiteBtn();
+
+    var rr = d.r || 0, gg = d.g || 0, bb = d.b || 0;
+    s_rgb_on = !!(d.on && (rr || gg || bb));
+    if (rr || gg || bb) {
+      s_rgb_last = {
+        r: rr,
+        g: gg,
+        b: bb,
+        brightness: d.brightness != null ? d.brightness : 100
+      };
+    }
+    updateRgbBtn();
 
     // UV state
     var uv = d.uv != null ? d.uv : 0;
@@ -189,9 +197,24 @@
   });
 
   // ---- button handlers ----
-  // ---- Main toggle ----
-  $('btn-main').addEventListener('click', function () {
-    sendCommand({ command: s_main_on ? 'off' : 'on' });
+  // ---- RGB toggle (preserves white MOSFET + UV via optional white field) ----
+  $('btn-rgb').addEventListener('click', function () {
+    var bri = s_rgb_last.brightness != null ? s_rgb_last.brightness : 100;
+    if (s_rgb_on) {
+      sendCommand({
+        command: 'setColor',
+        color: { r: 0, g: 0, b: 0 },
+        brightness: bri,
+        white: s_white
+      });
+    } else {
+      sendCommand({
+        command: 'setColor',
+        color: { r: s_rgb_last.r, g: s_rgb_last.g, b: s_rgb_last.b },
+        brightness: bri,
+        white: s_white
+      });
+    }
   });
 
   $('btn-identify').addEventListener('click', function () {

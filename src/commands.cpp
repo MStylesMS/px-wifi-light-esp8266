@@ -1,4 +1,4 @@
-// commands.cpp — MQTT / HTTP light command dispatch.
+// commands.cpp -- MQTT / HTTP light command dispatch.
 #include "commands.h"
 #include "log.h"
 #include "light_ctrl.h"
@@ -14,18 +14,13 @@ static cfg::Config* s_cfg = nullptr;
 static bool s_restart_pending = false;
 static uint32_t s_restart_at  = 0;
 
-// Set when a faded "off" is issued; consumed once that fade completes to
-// restore the pre-off brightness into the persisted state field (preserving
-// "off keeps channel values for next on" even though the fade visually
-// ramped brightness down to 0). -1 = no restore pending. Any new command
-// supersedes a pending restore, same as light_ctrl's own fade cancellation.
+// After a faded off, restore pre-off brightness into the state field once
+// the fade completes (visual ramp went to 0).
 static int16_t s_restore_brightness_after_fade = -1;
 
 void begin(cfg::Config* c) { s_cfg = c; }
 
 void tick() {
-    // A fade started by a command has finished — restore any pending
-    // preserved-brightness value, then publish the settled state.
     if (light_ctrl::take_fade_completed()) {
         if (s_restore_brightness_after_fade >= 0) {
             light_ctrl::restore_brightness_field((uint8_t)s_restore_brightness_after_fade);
@@ -40,9 +35,6 @@ void tick() {
     }
 }
 
-// Read the "fadeTime" field (seconds, float) and convert to ms.
-// An explicit value (including 0) always wins. When the field is absent,
-// falls back to the configured default_fade_time_s (0 = no default fade).
 static uint32_t fade_ms_from(const JsonDocument& doc) {
     JsonVariantConst v = doc["fadeTime"];
     double ft = v.isNull() ? (s_cfg ? (double)s_cfg->default_fade_time_s : 0.0) : v.as<double>();
@@ -56,7 +48,6 @@ static uint8_t clamp_pct(int v) {
     return (uint8_t)v;
 }
 
-// Parse "#RRGGBB" hex colour string into r, g, b.
 static bool parse_hex_color(const char* hex, uint8_t& r, uint8_t& g, uint8_t& b) {
     if (!hex) return false;
     const char* p = hex;
@@ -69,6 +60,39 @@ static bool parse_hex_color(const char* hex, uint8_t& r, uint8_t& g, uint8_t& b)
     return true;
 }
 
+static void fill_light_data(JsonDocument& data) {
+    const light_ctrl::State& ls = light_ctrl::state();
+    data["on"] = ls.on;
+    data["white"] = ls.white;
+    data["r"] = ls.r;
+    data["g"] = ls.g;
+    data["b"] = ls.b;
+    data["brightness"] = ls.brightness;
+    data["uv"] = light_ctrl::uv_level();
+    if (ls.scene.length()) data["scene"] = ls.scene;
+    else data["scene"] = nullptr;
+}
+
+static void emit_light_event(const char* event) {
+    JsonDocument data;
+    fill_light_data(data);
+    mqtt_mgr::publish_event("light", event, nullptr, data.as<JsonVariantConst>());
+}
+
+static const char* event_name_for_cmd(const char* cmd) {
+    if (strcmp(cmd, "allOn") == 0) return "all-on";
+    if (strcmp(cmd, "allOff") == 0) return "all-off";
+    if (strcmp(cmd, "setColor") == 0) return "set-color";
+    if (strcmp(cmd, "setBrightness") == 0) return "set-brightness";
+    if (strcmp(cmd, "setDefaultFadeTime") == 0) return "default-fade-time-updated";
+    if (strcmp(cmd, "setColorScene") == 0 || strcmp(cmd, "scene") == 0) return "set-color-scene";
+    if (strcmp(cmd, "getState") == 0 || strcmp(cmd, "getStatus") == 0) return "get-state";
+    if (strcmp(cmd, "setWhite") == 0) return "set-white";
+    if (strcmp(cmd, "setUV") == 0) return "set-uv";
+    // on, off, fade, identify, restart -- already kebab-safe single tokens
+    return cmd;
+}
+
 bool handle(const JsonDocument& doc) {
     const char* cmd = doc["command"] | "";
     if (!cmd || !cmd[0]) {
@@ -77,44 +101,61 @@ bool handle(const JsonDocument& doc) {
     }
 
     pxlog::info(TAG, "command: %s", cmd);
-
-    // Any new command supersedes a pending post-fade brightness restore
-    // from a previous faded "off" (only the off branch below re-arms it).
     s_restore_brightness_after_fade = -1;
 
     // --- on / allOn ---
+    // RGB/white come from the still-held state fields (off does not clear them).
+    // UV is restored from the snapshot captured at the last off/allOff.
+    // If nothing is set, default to white on, RGB 0, UV 0.
     if (strcmp(cmd, "on") == 0 || strcmp(cmd, "allOn") == 0) {
         const light_ctrl::State& cur = light_ctrl::state();
         bool white = cur.white;
-        if (!white && !cur.r && !cur.g && !cur.b) white = true;  // nothing set yet — default to white on
-        uint32_t fade_ms = fade_ms_from(doc);
+        uint8_t r = cur.r, g = cur.g, b = cur.b;
+        uint8_t bri = cur.brightness ? cur.brightness : 100;
+        uint8_t uv = 0;
+        if (light_ctrl::preserved().valid)
+            uv = light_ctrl::preserved().uv;
+        else
+            uv = light_ctrl::uv_level();
 
-        if (fade_ms > 0) {
-            uint8_t target_brightness = doc["brightness"].is<int>()
-                ? clamp_pct(doc["brightness"].as<int>()) : 100;
-            light_ctrl::fade_to(true, white, cur.r, cur.g, cur.b, target_brightness, fade_ms);
-        } else {
-            light_ctrl::set_on(true);
-            if (white) light_ctrl::set_white(true);
-        }
+        if (!white && !r && !g && !b && uv == 0)
+            white = true;  // nothing set yet -- default white on
+
+        if (doc["brightness"].is<int>())
+            bri = clamp_pct(doc["brightness"].as<int>());
+
+        uint32_t fade_ms = fade_ms_from(doc);
+        light_ctrl::fade_to(true, white, r, g, b, bri, uv, fade_ms);
+        light_ctrl::set_scene_name("");
         mqtt_mgr::publish_state();
+        emit_light_event(event_name_for_cmd(cmd));
         return true;
     }
 
     // --- off / allOff ---
     if (strcmp(cmd, "off") == 0 || strcmp(cmd, "allOff") == 0) {
+        const light_ctrl::State& cur = light_ctrl::state();
+        // Capture before blanking so allOn can restore W/RGB/bri/UV.
+        light_ctrl::capture_preserve_from_current();
         uint32_t fade_ms = fade_ms_from(doc);
         if (fade_ms > 0) {
-            const light_ctrl::State& cur = light_ctrl::state();
-            // Remember the current brightness so it can be restored once the
-            // fade-to-black finishes — "off" preserves channel values for
-            // the next "on", even though the fade ramps brightness to 0.
-            s_restore_brightness_after_fade = (int16_t)cur.brightness;
-            light_ctrl::fade_to(false, cur.white, cur.r, cur.g, cur.b, 0, fade_ms);
+            s_restore_brightness_after_fade = (int16_t)(
+                light_ctrl::preserved().valid ? light_ctrl::preserved().brightness : cur.brightness);
+            // Keep logical white/rgb fields; ramp bri and UV to 0; on=false at end.
+            light_ctrl::fade_to(false, cur.white, cur.r, cur.g, cur.b, 0, 0, fade_ms);
+            light_ctrl::set_scene_name("off");
         } else {
-            light_ctrl::set_on(false);
+            light_ctrl::fade_to(false, cur.white, cur.r, cur.g, cur.b,
+                                cur.brightness ? cur.brightness : 100, 0, 0);
+            // Immediate path: force off + uv 0 while keeping channel colour fields.
+            // fade_to(0) already set on=false, uv=0, scene=off but also overwrote bri.
+            // Restore bri from preserve so next on works even without fade restore path.
+            if (light_ctrl::preserved().valid)
+                light_ctrl::restore_brightness_field(light_ctrl::preserved().brightness);
+            light_ctrl::set_scene_name("off");
         }
         mqtt_mgr::publish_state();
+        emit_light_event(event_name_for_cmd(cmd));
         return true;
     }
 
@@ -138,19 +179,18 @@ bool handle(const JsonDocument& doc) {
             return false;
         }
 
+        uint8_t target_brightness = doc["brightness"].is<int>()
+            ? clamp_pct(doc["brightness"].as<int>()) : light_ctrl::state().brightness;
+        uint8_t uv = light_ctrl::uv_level();  // setColor does not touch UV
+        // Default: exclusive RGB mode (white off). Optional `white` preserves/sets
+        // the white MOSFET so channel toggles can zero RGB without killing white.
+        bool white = false;
+        if (doc["white"].is<bool>()) white = doc["white"].as<bool>();
+        bool on = white || r || g || b || uv > 0;
         uint32_t fade_ms = fade_ms_from(doc);
-        if (fade_ms > 0) {
-            uint8_t target_brightness = doc["brightness"].is<int>()
-                ? clamp_pct(doc["brightness"].as<int>()) : light_ctrl::state().brightness;
-            light_ctrl::fade_to(true, false, r, g, b, target_brightness, fade_ms);
-        } else {
-            // Turn off white when setting an explicit colour.
-            light_ctrl::set_white(false);
-            light_ctrl::set_rgb(r, g, b);
-            if (doc["brightness"].is<int>())
-                light_ctrl::set_brightness((uint8_t)(doc["brightness"].as<int>()));
-        }
+        light_ctrl::fade_to(on, white, r, g, b, target_brightness, uv, fade_ms);
         mqtt_mgr::publish_state();
+        emit_light_event("set-color");
         return true;
     }
 
@@ -161,23 +201,21 @@ bool handle(const JsonDocument& doc) {
             return false;
         }
         uint8_t target = clamp_pct(doc["brightness"].as<int>());
+        const light_ctrl::State& cur = light_ctrl::state();
         uint32_t fade_ms = fade_ms_from(doc);
-        if (fade_ms > 0) {
-            const light_ctrl::State& cur = light_ctrl::state();
-            light_ctrl::fade_to(true, cur.white, cur.r, cur.g, cur.b, target, fade_ms);
-        } else {
-            light_ctrl::set_brightness(target);
-            if (!light_ctrl::state().on) light_ctrl::set_on(true);
-        }
+        light_ctrl::fade_to(true, cur.white, cur.r, cur.g, cur.b, target,
+                            light_ctrl::uv_level(), fade_ms);
         mqtt_mgr::publish_state();
+        emit_light_event("set-brightness");
         return true;
     }
 
-    // --- fade --- (generic: ramp brightness and/or color to a target over fadeTime seconds)
+    // --- fade ---
     if (strcmp(cmd, "fade") == 0) {
         const light_ctrl::State& cur = light_ctrl::state();
         uint8_t r = cur.r, g = cur.g, b = cur.b;
         bool white = cur.white;
+        uint8_t uv = light_ctrl::uv_level();
 
         JsonVariantConst col = doc["color"];
         if (!col.isNull()) {
@@ -194,24 +232,24 @@ bool handle(const JsonDocument& doc) {
             }
             white = false;
         }
-
-        uint8_t brightness = doc["brightness"].is<int>() ? clamp_pct(doc["brightness"].as<int>()) : cur.brightness;
-        bool on = brightness > 0;
-        uint32_t fade_ms = fade_ms_from(doc);
-
-        if (fade_ms > 0) {
-            light_ctrl::fade_to(on, white, r, g, b, brightness, fade_ms);
-        } else {
-            light_ctrl::set_white(white);
-            light_ctrl::set_rgb(r, g, b);
-            light_ctrl::set_brightness(brightness);
-            light_ctrl::set_on(on);
+        if (doc["level"].is<int>()) {
+            int lvl = doc["level"].as<int>();
+            if (lvl < 0) lvl = 0;
+            if (lvl > 255) lvl = 255;
+            uv = (uint8_t)lvl;
         }
+
+        uint8_t brightness = doc["brightness"].is<int>()
+            ? clamp_pct(doc["brightness"].as<int>()) : cur.brightness;
+        bool on = brightness > 0 || uv > 0 || white || r || g || b;
+        uint32_t fade_ms = fade_ms_from(doc);
+        light_ctrl::fade_to(on, white, r, g, b, brightness, uv, fade_ms);
         mqtt_mgr::publish_state();
+        emit_light_event("fade");
         return true;
     }
 
-    // --- setDefaultFadeTime --- (persisted; used when a command omits "fadeTime")
+    // --- setDefaultFadeTime ---
     if (strcmp(cmd, "setDefaultFadeTime") == 0) {
         if (!s_cfg) {
             mqtt_mgr::publish_warning("LIGHT_CMD_INVALID", "config not available", JsonVariantConst());
@@ -224,16 +262,18 @@ bool handle(const JsonDocument& doc) {
         }
         double ft = v.as<double>();
         if (ft < 0.0)  ft = 0.0;
-        if (ft > 60.0) ft = 60.0;  // sane ceiling
+        if (ft > 60.0) ft = 60.0;
         s_cfg->default_fade_time_s = (float)ft;
         if (!cfg::save(*s_cfg)) {
             pxlog::warn(TAG, "setDefaultFadeTime: config save failed");
-            mqtt_mgr::publish_warning("LIGHT_CONFIG_SAVE_FAILED", "failed to persist default_fade_time_s", JsonVariantConst());
+            mqtt_mgr::publish_warning("LIGHT_CONFIG_SAVE_FAILED",
+                                      "failed to persist default_fade_time_s", JsonVariantConst());
         }
         pxlog::info(TAG, "default_fade_time_s=%.2f", ft);
         JsonDocument data;
         data["default_fade_time_s"] = s_cfg->default_fade_time_s;
-        mqtt_mgr::publish_event("device", "default-fade-time-updated", nullptr, data.as<JsonVariantConst>());
+        mqtt_mgr::publish_event("device", "default-fade-time-updated", nullptr,
+                                data.as<JsonVariantConst>());
         mqtt_mgr::publish_state();
         return true;
     }
@@ -245,21 +285,31 @@ bool handle(const JsonDocument& doc) {
             mqtt_mgr::publish_warning("LIGHT_CMD_INVALID", "missing scene field", JsonVariantConst());
             return false;
         }
+        // Scene "off" is all-channel off -- preserve UV/channels like allOff.
+        if (strcasecmp(name, "off") == 0)
+            light_ctrl::capture_preserve_from_current();
         uint32_t fade_ms = fade_ms_from(doc);
         light_ctrl::apply_scene(name, fade_ms);
+        if (strcasecmp(name, "off") == 0 && fade_ms > 0) {
+            const light_ctrl::Preserved& p = light_ctrl::preserved();
+            if (p.valid) s_restore_brightness_after_fade = (int16_t)p.brightness;
+        }
         mqtt_mgr::publish_state();
+        emit_light_event("set-color-scene");
         return true;
     }
 
     // --- getState / getStatus ---
     if (strcmp(cmd, "getState") == 0 || strcmp(cmd, "getStatus") == 0) {
         mqtt_mgr::publish_state();
+        emit_light_event("get-state");
         return true;
     }
 
     // --- identify ---
     if (strcmp(cmd, "identify") == 0) {
         light_ctrl::identify();
+        emit_light_event("identify");
         return true;
     }
 
@@ -268,16 +318,24 @@ bool handle(const JsonDocument& doc) {
         pxlog::warn(TAG, "restart requested via command");
         s_restart_pending = true;
         s_restart_at = millis() + 500;
+        emit_light_event("restart");
         return true;
     }
 
     // --- setWhite ---
     if (strcmp(cmd, "setWhite") == 0) {
         bool w = doc["white"] | false;
-        light_ctrl::set_white(w);
-        if (!w && !light_ctrl::state().r && !light_ctrl::state().g && !light_ctrl::state().b)
-            light_ctrl::set_on(false);
+        const light_ctrl::State& cur = light_ctrl::state();
+        uint8_t uv = light_ctrl::uv_level();
+        if (w) {
+            light_ctrl::fade_to(true, true, cur.r, cur.g, cur.b, cur.brightness, uv, 0);
+        } else {
+            bool any_rgb = cur.r || cur.g || cur.b;
+            light_ctrl::fade_to(any_rgb || uv > 0, false, cur.r, cur.g, cur.b,
+                                cur.brightness, uv, 0);
+        }
         mqtt_mgr::publish_state();
+        emit_light_event("set-white");
         return true;
     }
 
@@ -290,8 +348,16 @@ bool handle(const JsonDocument& doc) {
         int lvl = doc["level"].as<int>();
         if (lvl < 0)   lvl = 0;
         if (lvl > 255) lvl = 255;
-        light_ctrl::set_uv((uint8_t)lvl);
+        const light_ctrl::State& cur = light_ctrl::state();
+        uint32_t fade_ms = fade_ms_from(doc);
+        // Keep main channels; ramp UV. Device on if UV or main channels active.
+        bool on = cur.on || lvl > 0;
+        if (!cur.on && lvl > 0) on = true;
+        light_ctrl::fade_to(on || cur.white || cur.r || cur.g || cur.b || lvl > 0,
+                            cur.white, cur.r, cur.g, cur.b, cur.brightness,
+                            (uint8_t)lvl, fade_ms);
         mqtt_mgr::publish_state();
+        emit_light_event("set-uv");
         return true;
     }
 
