@@ -42,7 +42,7 @@ curl http://<host>/api/state
 {
   "timestamp": "uptime+1234s",
   "application": "px-wifi-light-esp8266",
-  "fw_version": "0.5.1",
+  "fw_version": "0.5.2",
   "instance": "px-light-AABB",
   "uptime_s": 1234,
   "free_heap": 38192,
@@ -302,7 +302,7 @@ on `{base_topic}/state` (prefer `paradox/<room>/<device>/state`).
 {
   "timestamp": "uptime+Ns",
   "application": "px-wifi-light-esp8266",
-  "fw_version": "0.5.1",
+  "fw_version": "0.5.2",
   "instance": "px-light-AABB",
   "base_topic": "paradox/lights/px-light-aabb",
   "ip": "192.168.1.42",
